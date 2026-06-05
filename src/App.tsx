@@ -1,21 +1,21 @@
-import { useState, useEffect } from "react";
-import { 
-  BookOpen, 
-  Calendar, 
-  Award, 
-  FileText, 
-  Mail, 
-  Sparkles, 
-  Clock, 
-  Copy, 
-  Download, 
-  Save, 
-  CheckCircle, 
-  AlertCircle, 
-  Plus, 
-  Trash2, 
-  Heart, 
-  TrendingUp, 
+import { useState, useEffect, useCallback } from "react";
+import {
+  BookOpen,
+  Calendar,
+  Award,
+  FileText,
+  Mail,
+  Sparkles,
+  Clock,
+  Copy,
+  Download,
+  Save,
+  CheckCircle,
+  AlertCircle,
+  Plus,
+  Trash2,
+  Heart,
+  TrendingUp,
   BookOpenCheck,
   RotateCw,
   FolderLock,
@@ -25,9 +25,16 @@ import {
   Menu,
   Coffee,
   HelpCircle,
-  Image
+  Image,
+  LogOut,
+  User,
+  Cloud,
+  CloudOff
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import { supabase } from "./lib/supabase";
+import type { Session } from "@supabase/supabase-js";
+import AuthPage from "./components/AuthPage";
 
 import {
   uploadToGoogleDrive,
@@ -104,6 +111,31 @@ const DIAGRAM_PRESETS = [
 ];
 
 export default function App() {
+  // Auth State
+  const [session, setSession] = useState<Session | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [syncStatus, setSyncStatus] = useState<"idle" | "syncing" | "synced" | "error">("idle");
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setAuthLoading(false);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      (async () => {
+        setSession(session);
+        setAuthLoading(false);
+      })();
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    setSavedItems([]);
+  };
+
   // Navigation State
   const [activeTab, setActiveTab] = useState<"tools" | "vocational_curriculums" | "satchel" | "guide" | "google_workspace">("tools");
   const [activeTool, setActiveTool] = useState<ActiveTool>("lesson_planner");
@@ -234,31 +266,49 @@ export default function App() {
   const [timeSaved, setTimeSaved] = useState<number>(14.5); // Dynamic counter in hours
   const [currentTipIndex, setCurrentTipIndex] = useState(0);
 
-  // Load and Save to LocalStorage
+  // Load and Save to LocalStorage + Supabase
   useEffect(() => {
-    const saved = localStorage.getItem("smart_professor_satchel");
-    if (saved) {
-      try {
-        setSavedItems(JSON.parse(saved));
-      } catch (e) {
-        console.error("Failed to parse local history satchel", e);
-      }
-    }
-
-    const savedHours = localStorage.getItem("smart_professor_time_saved");
-    if (savedHours) {
-      setTimeSaved(parseFloat(savedHours));
-    }
-
+    // Load local-only data (programs etc.)
     const savedProgs = localStorage.getItem("smart_professor_vocational_programs");
     if (savedProgs) {
-      try {
-        setVocationalPrograms(JSON.parse(savedProgs));
-      } catch (e) {
-        console.error("Failed to parse custom vocational programs", e);
-      }
+      try { setVocationalPrograms(JSON.parse(savedProgs)); } catch (e) { /* ignore */ }
     }
+    const savedHours = localStorage.getItem("smart_professor_time_saved");
+    if (savedHours) setTimeSaved(parseFloat(savedHours));
   }, []);
+
+  // Load satchel from Supabase when session changes
+  useEffect(() => {
+    if (!session) {
+      setSavedItems([]);
+      return;
+    }
+    (async () => {
+      setSyncStatus("syncing");
+      const { data, error } = await supabase
+        .from("satchel_items")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) {
+        console.error("Failed to load satchel:", error);
+        setSyncStatus("error");
+        return;
+      }
+      const mapped = (data || []).map((item: any) => ({
+        id: item.id,
+        title: item.title,
+        tool: item.tool as ActiveTool,
+        content: item.content,
+        imageUrl: item.image_url || undefined,
+        timestamp: new Date(item.created_at).toLocaleDateString("ar-EG", {
+          year: "numeric", month: "long", day: "numeric",
+          hour: "2-digit", minute: "2-digit"
+        })
+      }));
+      setSavedItems(mapped);
+      setSyncStatus("synced");
+    })();
+  }, [session]);
 
   // Update dynamic time counter index periodically for micro-motivation
   useEffect(() => {
@@ -435,8 +485,8 @@ export default function App() {
     }
   };
 
-  // Save Generated item into portfolio/satchel in localStorage
-  const handleSaveToSatchel = () => {
+  // Save Generated item into portfolio/satchel
+  const handleSaveToSatchel = async () => {
     if (!editableContent.trim()) return;
 
     let titleText = "";
@@ -447,34 +497,68 @@ export default function App() {
     else if (activeTool === "diagram_generator") titleText = `مخطط بيداغوجي: ${diagramParams.topic}`;
     else titleText = `مراسلة إدارية: ${adminParams.documentType.slice(0, 30)}...`;
 
-    const newItem: SavedItem = {
-      id: "sav_" + Date.now(),
-      title: titleText,
-      tool: activeTool,
-      content: editableContent,
-      imageUrl: outputImageUrl,
-      timestamp: new Date().toLocaleDateString("ar-EG", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit"
-      })
-    };
+    const timestamp = new Date().toLocaleDateString("ar-EG", {
+      year: "numeric", month: "long", day: "numeric",
+      hour: "2-digit", minute: "2-digit"
+    });
 
-    const updated = [newItem, ...savedItems];
-    setSavedItems(updated);
-    localStorage.setItem("smart_professor_satchel", JSON.stringify(updated));
-    
+    if (session) {
+      setSyncStatus("syncing");
+      const { data, error } = await supabase
+        .from("satchel_items")
+        .insert({
+          title: titleText,
+          tool: activeTool,
+          content: editableContent,
+          image_url: outputImageUrl || null
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error("Failed to save to Supabase:", error);
+        setSyncStatus("error");
+        return;
+      }
+      const newItem: SavedItem = {
+        id: data.id,
+        title: titleText,
+        tool: activeTool,
+        content: editableContent,
+        imageUrl: outputImageUrl || undefined,
+        timestamp
+      };
+      setSavedItems(prev => [newItem, ...prev]);
+      setSyncStatus("synced");
+    } else {
+      // Fallback: localStorage only
+      const newItem: SavedItem = {
+        id: "sav_" + Date.now(),
+        title: titleText,
+        tool: activeTool,
+        content: editableContent,
+        imageUrl: outputImageUrl || undefined,
+        timestamp
+      };
+      const updated = [newItem, ...savedItems];
+      setSavedItems(updated);
+      localStorage.setItem("smart_professor_satchel", JSON.stringify(updated));
+    }
+
     setJustSaved(true);
     setTimeout(() => setJustSaved(false), 3000);
   };
 
-  // Delete Item from local history portfolio
-  const handleDeleteFromSatchel = (id: string) => {
-    const updated = savedItems.filter((item) => item.id !== id);
-    setSavedItems(updated);
-    localStorage.setItem("smart_professor_satchel", JSON.stringify(updated));
+  // Delete Item from portfolio
+  const handleDeleteFromSatchel = async (id: string) => {
+    if (session) {
+      const { error } = await supabase.from("satchel_items").delete().eq("id", id);
+      if (error) { console.error("Delete error:", error); return; }
+    } else {
+      const updated = savedItems.filter((item) => item.id !== id);
+      localStorage.setItem("smart_professor_satchel", JSON.stringify(updated));
+    }
+    setSavedItems(prev => prev.filter((item) => item.id !== id));
   };
 
   // Copy with UI state feedback
@@ -839,7 +923,7 @@ export default function App() {
           if (trimmed.startsWith("## ")) {
             return (
               <h2 key={idx} className="text-xl font-bold text-white flex items-center gap-2 mt-5 font-sans">
-                <span className="w-1.5 h-5 bg-gradient-to-b from-indigo-500 to-violet-500 rounded-full inline-block"></span>
+                <span className="w-1.5 h-5 bg-gradient-to-b from-blue-500 to-sky-500 rounded-full inline-block"></span>
                 {trimmed.replace("## ", "")}
               </h2>
             );
@@ -847,7 +931,7 @@ export default function App() {
           // Header H3
           if (trimmed.startsWith("### ")) {
             return (
-              <h3 key={idx} className="text-lg font-semibold text-indigo-300 mt-4 underline decoration-indigo-500/30 decoration-2">
+              <h3 key={idx} className="text-lg font-semibold text-blue-300 mt-4 underline decoration-blue-500/30 decoration-2">
                 {trimmed.replace("### ", "")}
               </h3>
             );
@@ -879,7 +963,21 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#030712] text-slate-100 font-sans antialiased overflow-x-hidden relative">
-      
+
+      {/* Auth Gate */}
+      {authLoading && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#030712]">
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-10 h-10 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
+            <p className="text-slate-400 text-sm" style={{ fontFamily: "Tajawal, sans-serif" }}>جاري تحميل المنصة...</p>
+          </div>
+        </div>
+      )}
+      {!authLoading && !session && (
+        <AuthPage onAuthenticated={() => {}} />
+      )}
+      {!authLoading && session && (
+      <div className="min-h-screen">
       {/* Background ambient glows */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
         <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-violet-600/10 blur-[120px] pointer-events-none" />
@@ -916,32 +1014,70 @@ export default function App() {
       </div>
 
       {/* Main Professional Header Block */}
-      <header className="bg-slate-950/40 border-b border-white/10 backdrop-blur-lg py-6 px-4 md:px-8 shadow-md relative z-10">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
+      <header className="bg-slate-950/40 border-b border-white/10 backdrop-blur-lg py-5 px-4 md:px-8 shadow-md relative z-10">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-4 text-right">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-slate-900 via-indigo-950 to-slate-800 flex items-center justify-center text-amber-400 shadow-lg border border-white/10 pulsing-glow">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-slate-900 via-blue-950 to-slate-800 flex items-center justify-center text-blue-400 shadow-lg border border-white/10 pulsing-glow">
               <Sparkles className="w-7 h-7" />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-2xl font-black text-white tracking-tight font-sans">الأستاذ الذكي</h1>
-                <span className="text-xs bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-amber-300 border border-amber-500/25 font-bold px-2.5 py-1 rounded-full font-sans shadow-sm">مساعد الأستاذ الفائق</span>
+                <span className="text-xs bg-gradient-to-r from-blue-500/20 to-sky-500/20 text-blue-300 border border-blue-500/25 font-bold px-2.5 py-1 rounded-full font-sans shadow-sm">مساعد الأستاذ الفائق</span>
               </div>
               <p className="text-xs md:text-sm text-slate-400 font-sans mt-1">
-                المنصة البيدغوجية الذكية لتصميم المناهج وتخطيط الدروس وصياغة المراسلات بالمقاربة بالكفاءات (APC)
+                المنصة البيداغوجية الذكية للمقاربة بالكفاءات (APC) · التكوين والتعليم المهني
               </p>
             </div>
           </div>
 
-          {/* Teacher's Work-Life Statistics Card */}
-          <div className="flex items-center gap-4 bg-white/5 backdrop-blur-md text-slate-100 p-4 rounded-2xl shadow-md border border-white/10 hover:border-white/15 transition-all">
-            <TrendingUp className="w-10 h-10 text-amber-400 hidden sm:block bg-amber-500/10 p-2 rounded-xl" />
-            <div className="text-right">
-              <div className="text-amber-400 text-2xl font-black flex items-center gap-1 leading-none">
-                <span>{timeSaved}</span>
-                <span className="text-xs font-medium text-slate-400 mr-1">ساعة</span>
+          <div className="flex items-center gap-3">
+            {/* Sync Status */}
+            <div className="flex items-center gap-1.5 text-xs">
+              {syncStatus === "syncing" && (
+                <span className="flex items-center gap-1 text-blue-400">
+                  <span className="w-3 h-3 border border-blue-400/40 border-t-blue-400 rounded-full animate-spin" />
+                  مزامنة...
+                </span>
+              )}
+              {syncStatus === "synced" && (
+                <span className="flex items-center gap-1 text-emerald-400">
+                  <Cloud size={13} />
+                  محفوظ
+                </span>
+              )}
+              {syncStatus === "error" && (
+                <span className="flex items-center gap-1 text-red-400">
+                  <CloudOff size={13} />
+                  خطأ في المزامنة
+                </span>
+              )}
+            </div>
+
+            {/* Time saved */}
+            <div className="hidden sm:flex items-center gap-3 bg-white/5 text-slate-100 py-2.5 px-4 rounded-xl shadow-md border border-white/10">
+              <TrendingUp className="w-4 h-4 text-blue-400" />
+              <div className="text-right">
+                <div className="text-blue-400 text-lg font-black leading-none">{timeSaved}<span className="text-xs font-medium text-slate-400 mr-1">ساعة</span></div>
+                <p className="text-[10px] text-slate-400 mt-0.5">وقت موفّر</p>
               </div>
-              <p className="text-[10px] text-slate-300 font-sans mt-1">إجمالي الوقت الإداري والورقي الموفّر لك هذا الأسبوع</p>
+            </div>
+
+            {/* User + signout */}
+            <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl py-2 px-3">
+              <div className="w-7 h-7 rounded-full bg-blue-600/20 border border-blue-500/30 flex items-center justify-center">
+                <User size={14} className="text-blue-400" />
+              </div>
+              <span className="text-xs text-slate-300 font-medium hidden sm:block max-w-[140px] truncate">
+                {session.user.email}
+              </span>
+              <button
+                onClick={handleSignOut}
+                title="تسجيل الخروج"
+                className="text-slate-500 hover:text-red-400 transition-colors p-1 rounded-lg hover:bg-red-500/10 cursor-pointer"
+              >
+                <LogOut size={14} />
+              </button>
             </div>
           </div>
         </div>
@@ -955,12 +1091,12 @@ export default function App() {
             <button
               onClick={() => { setActiveTab("tools"); setErrorMsg(null); }}
               className={`flex items-center gap-2 py-4 px-3 text-sm font-bold border-b-2 transition-all cursor-pointer whitespace-nowrap ${
-                activeTab === "tools" 
-                  ? "border-indigo-400 text-indigo-300" 
+                activeTab === "tools"
+                  ? "border-blue-400 text-blue-300"
                   : "border-transparent text-slate-400 hover:text-slate-200"
               }`}
             >
-              <Sparkles className="w-4 h-4 text-amber-500 animate-pulse" />
+              <Sparkles className="w-4 h-4 text-blue-400" />
               <span>الأدوات والحلول الذكية للأستاذ</span>
             </button>
 
@@ -999,12 +1135,12 @@ export default function App() {
             <button
               onClick={() => { setActiveTab("guide"); setErrorMsg(null); }}
               className={`flex items-center gap-2 py-4 px-3 text-sm font-bold border-b-2 transition-all cursor-pointer whitespace-nowrap ${
-                activeTab === "guide" 
-                  ? "border-indigo-400 text-indigo-300" 
+                activeTab === "guide"
+                  ? "border-blue-400 text-blue-300"
                   : "border-transparent text-slate-400 hover:text-slate-200"
               }`}
             >
-              <HelpCircle className="w-4 h-4 text-indigo-400" />
+              <HelpCircle className="w-4 h-4 text-blue-400" />
               <span>دليل المقاربة بالكفاءة (APC)</span>
             </button>
 
@@ -1817,10 +1953,18 @@ export default function App() {
                           <div className="flex items-center gap-2 font-sans font-sans">
                             <button
                               onClick={handleSaveToSatchel}
-                              className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-4 py-2 rounded-lg text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-md shadow-indigo-500/10 border border-indigo-500/30"
+                              className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-4 py-2 rounded-lg text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-md shadow-blue-500/10 border border-blue-500/30"
                             >
-                              <Save className="w-3.5 h-3.5 text-amber-300" />
-                              <span>{justSaved ? "تم الحفظ محلياً!" : "حفظ في حقيبتي"}</span>
+                              {syncStatus === "syncing" ? (
+                                <span className="w-3 h-3 border border-white/30 border-t-white rounded-full animate-spin" />
+                              ) : justSaved ? (
+                                <Check className="w-3.5 h-3.5 text-emerald-300 animate-pulse" />
+                              ) : session ? (
+                                <Cloud className="w-3.5 h-3.5 text-blue-200" />
+                              ) : (
+                                <Save className="w-3.5 h-3.5 text-blue-200" />
+                              )}
+                              <span>{justSaved ? "تم الحفظ!" : session ? "حفظ في السحابة" : "حفظ في حقيبتي"}</span>
                             </button>
                           </div>
                         </div>
@@ -2223,10 +2367,23 @@ export default function App() {
               <div className="bg-slate-900/40 backdrop-blur-md rounded-2xl p-6 md:p-8 shadow-xl border border-white/10">
                 <div className="flex items-center justify-between border-b pb-4 border-white/10">
                   <div>
-                    <h2 className="text-lg font-bold text-slate-100 font-sans">حقيبة الأستاذ المحفوظة محلياً ({savedItems.length})</h2>
-                    <p className="text-xs text-slate-400 mt-1">مخزن أعمالك التربوية التي قمت بتوليدها وتعديلها على جهازك دون اتصال</p>
+                    <h2 className="text-lg font-bold text-slate-100 font-sans flex items-center gap-2">
+                      حقيبة الأستاذ المحفوظة
+                      <span className="text-sm font-normal text-slate-400">({savedItems.length})</span>
+                      {session && (
+                        <span className="text-[10px] bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
+                          <Cloud size={9} />
+                          مزامنة سحابية
+                        </span>
+                      )}
+                    </h2>
+                    <p className="text-xs text-slate-400 mt-1">
+                      {session
+                        ? "أعمالك محفوظة في السحابة ومتاحة من أي جهاز"
+                        : "محفوظة محلياً على جهازك"}
+                    </p>
                   </div>
-                  <FolderLock className="w-8 h-8 text-indigo-400" />
+                  <FolderLock className="w-8 h-8 text-blue-400" />
                 </div>
 
                 {/* Zero state saved items */}
@@ -2799,6 +2956,8 @@ export default function App() {
         </div>
       </footer>
 
+      </div>
+      )}
     </div>
   );
 }
