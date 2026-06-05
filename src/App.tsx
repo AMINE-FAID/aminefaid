@@ -1,36 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import {
-  BookOpen,
-  Calendar,
-  Award,
-  FileText,
-  Mail,
-  Sparkles,
-  Clock,
-  Copy,
-  Download,
-  Save,
-  CheckCircle,
-  AlertCircle,
-  Plus,
-  Trash2,
-  Heart,
-  TrendingUp,
-  BookOpenCheck,
-  RotateCw,
-  FolderLock,
-  Edit2,
-  Check,
-  ChevronRight,
-  Menu,
-  Coffee,
-  HelpCircle,
-  Image,
-  LogOut,
-  User,
-  Cloud,
-  CloudOff
-} from "lucide-react";
+import { BookOpen, Calendar, Award, FileText, Mail, Sparkles, Clock, Copy, Download, Save, CircleCheck as CheckCircle, CircleAlert as AlertCircle, Plus, Trash2, Heart, TrendingUp, BookOpenCheck, RotateCw, FolderLock, CreditCard as Edit2, Check, ChevronRight, Menu, Coffee, Circle as HelpCircle, Image, LogOut, User, Cloud, CloudOff } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { supabase } from "./lib/supabase";
 import type { Session } from "@supabase/supabase-js";
