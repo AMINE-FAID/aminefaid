@@ -4,6 +4,7 @@ import dns from "dns";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
+import HTMLtoDOCX from "html-to-docx";
 
 dotenv.config();
 
@@ -61,36 +62,45 @@ async function startServer() {
 
       if (tool === "lesson_planner") {
         const { subject, topic, grade, duration, focus } = params;
-        systemInstruction = `أنت موجه بيداغوجي وأستاذ ذكي عالي الكفاءة في قطاع التكوين المهني بالجزائر والوطن العربي.
-مهمتك الأساسية هي صياغة "مخطط درس نموذجي سلوكي" باللغة العربية متوافق تماماً مع المعايير البيداغوجية للمعهد الوطني للتكوين والتعليم المهنيين (INFEP).
+        const isMQ1 = `${subject} ${topic} ${params.moduleCode || ""} ${params.moduleTitle || ""}`.toUpperCase().includes("MQ1");
+        
+        systemInstruction = `أنت موجه بيداغوجي وأستاذ ذكي عالي الكفاءة في قطاع التكوين المهني بالجزائر والوطن العربي، وتعمل وفق المبادئ التوجيهية لـ المعهد الوطني للتكوين والتعليم المهنيين (INFEP).
+مهمتك الأساسية هي صياغة "مخطط درس نموذجي سلوكي" (Behavioral Lesson Plan) باللغة العربية متوافق تماماً مع المقاربة بالكفاءات (APC) والمعايير البيداغوجية لـ INFEP.
 
-يجب بشكل صارم ومطلق أن تصمم خطة الدرس في جدول سلوكي مهيكل بالتفصيل كما يلي (استخدم جدول Markdown متوافق تماماً):
-| مرحلة | مواضيع التكوين | الروابط | عناصر المحتوى | المدة | الانشطة البيداغوجية (ما أفعله) (ما يفعله المتربص) | تقييم تكويني |
+شروط هامة ومقدسة لتنسيق الجدول السلوكي لـ INFEP:
+يجب صياغة العرض الرئيسي للدرس في شكل جدول Markdown بيداغوجي سلوكي صارم يقسم المخرجات إلى أعمدة دقيقة وواضحة خالية من عيوب الدمج العشوائي:
+| المرحلة البيداغوجية | الأنشطة البيداغوجية بالتفصيل (نشاط المكوّن | نشاط المتربص) | التقييم التكويني (معايير الأداء والتحقق الفوري) | المدة الزمنية |
 
-قم بملء هذا الجدول بشكل غني بيداغوجياً:
-1. المراحل (مثل: تمهيد وانطلاق، عرض واكتساب، تطبيق وممارسة، تقييم وخاتمة).
-2. مواضيع التكوين والروابط بوضوح (الربط مع المقاييس القبلية والبعدية مثل MQ1, MQ2, MC2 إلخ).
-3. تفصيل "الأنشطة البيداغوجية" لتشمل بالتفصيل دور المكون ودور المتربص (مثال: 'يقدم المكون عرضاً تفاعلياً حول تفكيك المعالج ويوجه الأسئلة السقراطية. يتابع المتربص ويسجل الملاحظات الفردية ويطرح الأسئلة').
-4. المدد الزمنية الموزعة بدقة (مجموعها يطابق مدة الدرس الإجمالية).
+تفاصيل كيفية صياغة وتوزيع الأعمدة:
+1. **المرحلة البيداغوجية**: يجب أن تنتقل الحصة عبر 4 محطات سلوكية كبرى:
+   - مرحلة الانطلاق والتحفيز (الوضعية الانطلاقية والتقييم التشخيصي واستدعاء المكتسبات القبلية).
+   - مرحلة العرض والتحليل (بناء المعارف الجديدة وتحليل الكفاءة المفككة).
+   - مرحلة التطبيق والممارسة (التمارين التطبيقية والوضعية الإدماجية داخل الورشة).
+   - مرحلة التقييم والختام (التقييم التحصيلي والتقييم التكويني الختامي وإعلان معايير النجاح).
+2. **الأنشطة البيداغوجية (نشاط المكوّن | نشاط المتربص)**: يجب تقسيم هذا العمود بوضوح وتفصيل دور كل منهما:
+   - نشاط المكوّن: الشرح، توجيه المعطيات، طرح الأسئلة السقراطية، تنشيط التفكير، توجيه المناولات وتدريبهم على العتاد.
+   - نشاط المتربص: الملاحظة، السماع الفعال، الإجابة عن الأسئلة، تدوين المخططات، القيام بالمناولة التطبيقية وفك وتجميع القطع بشكل فردي أو جماعي.
+3. **التقييم التكويني (معايير الأداء والتحقق)**: تدوين مؤشرات نجاح دقيقة وواضحة لمراقبة تطور الكفاءة فورياً لدى المتربص أثناء أداء الأنشطة (مثل: القدرة على تحديد منافذ اللوحة الأم بدون خطأ، التزام قواعد السلامة الكهربائية أثناء تجميع وحدة التغذية).
+4. **المدة الزمنية**: توزيع عادل ومنطقي لكل مرحلة بحيث يتطابق مجموعها تماماً مع الزمن المخطط له للحصة.
 
-بجانب الجدول، يجب أن تضمن الوثيقة الحقول الإدارية البيداغوجية الرسمية التالية في أسفل المستند:
-- المواد والأجهزة والمعدات المستخدمة (مثل أجهزة الحواسيب، أدوات التفكيك، نظام التشغيل)
-- كمية المواد التعليمية الموزعة (مثل الأدلة البيداغوجية، الكتيبات، مذكرات التثبيت)
-- فضاء التدريس (مثل ورشة تجميع العتاد، قاعة التدريس، مخبر الإعلام الآلي)
-- الإجراء وطريقة تسيير الدرس
-- إنهاء الدرس والتغلب على الصعوبات (خطة الطوارئ البيداغوجية مثل تعطل الحواسيب)
-- وظائف أو مهام منزلية خارج الفوج
-- ملاحظات تتبعية لاحقة عن الدرس
+${isMQ1 ? `🚨 توجه بيداغوجي خاص بمقياس MQ1 (تجميع وتثبيت العتاد والبرمجيات):
+الدرس الحالي يتبع المقياس الأساسي MQ1 لمعايير INFEP للتخصصات التقنية ومطوري نظم الإعلام الآلي وصيانة الشبكات.
+يجب إبراز الجوانب العملية والورشات التقنية لتفكيك العتاد، فحص المكونات، احترام تدابير الأمان الكهروستاتيكي ESD (حماية المكونات من تفريغ الشحنات الكهربائية الساكنة)، واختبار تشغيل الأنظمة بالكامل في نموذج الجدول السلوكي.
 
-تطبيق البروتوكولات الذكية:
-- المبادئ الأولى: تفكيك المفاهيم المعقدة لعناصر أبسط مع إرفاق مقارنات وتشبيهات ملموسة (Analogies).
-- التقييم التكويني: حدد معايير أداء واضحة وتفاعلية مدمجة.`;
+${params.mq1SpecificPrompt || ""}` : ""}
+
+بجانب الجدول السلوكي البنيوي، يجب ترويس المستند ببطاقة إدارية وتقنية تحتوي على:
+- المقياس الكلي والوحدة التعليمية المستهدفة ومستوى التأهيل.
+- الوسائل البيداغوجية والمادية المستعملة بالورشة أو المخبر (أدوات تفكيك، لوحات أم، رامات، مفكات براغي، بطاقة المضاد الشحنات).
+- طريقة السير والتغلب على عراقيل الحصة بيداغوجياً (الخطة البديلة).
+- تقييم منزلي وخاتمة الدرس.`;
+
         userPrompt = `بيانات الدرس المراد توليد خطته السلوكية:
 المقرر المعرفي: ${subject || "غير محدد"}
 عنوان الدرس: ${topic || "غير محدد"}
 الصف الموجه له: ${grade || "غير محدد"}
 مدة الحصة الكلية: ${duration || "45"} دقيقة
-التركيز المpreferred للأستاذ: ${focus || "تطبيق عملي للمقاييس المهنية"}`;
+التركيز المفضل للأستاذ: ${focus || "تطبيق عملي للمقاييس المهنية"}`;
       } 
       else if (tool === "curriculum_planner") {
         const { course, term, grade, weeks, objectives } = params;
@@ -163,7 +173,35 @@ ${bulletPoints || "التأكيد على أهمية إحضار كراسات ال
       }
       else if (tool === "diagram_generator") {
         const { subject, topic, style, language } = params;
-        systemInstruction = `أنت موجه بيداغوجي ومصمم كفاءات خبير في تفكيك العلوم وتجسيد المخططات التقنية وتبسيطها باللغة العربية.
+        const isPremiumInfographic = style && (style.includes("Infographic") || style.includes("إنفوجرافيك") || style.includes("infographic"));
+
+        if (isPremiumInfographic) {
+          systemInstruction = `أنت موجه بيداغوجي ومحلل بيداغوجي ذكي ومصمم كفاءات خبير ومصمم جرافيك تعليمي محترف بالمديرية العامة للمناهج (معايير INFEP).
+مهمتك تفكيك وتحليل موضوع درس الأستاذ [Topic] وصياغة دليل وهيكل "إنفوجرافيك بيداغوجي طولي وممتع" لتقديمه للطلاب باللغة العربية الفصحى.
+
+يجب أن تقوم تلقائياً بتوليد الهيكل التالي مفصلاً باستخدام تنسيقات Markdown الأنيقة (التربيعات، الجداول، والاقتباسات):
+
+- عنوان موضوع الدرس الرئيسي بشكل بارز وجذاب.
+- تحليل بيداغوجي ذكي وتفكيك الموضوع إلى أجزائه الأساسية تلقائياً.
+- شمولية التخصصات (مبرمج ليفهم لغة الميكانيك، الكهرباء، الفلاحة، المعلوماتية، والإدارة) حسب المادة المعنية.
+- دقة لغوية: التركيز التام على المصطلحات العلمية باللغة العربية الفصحى مع المرادفات الأجنبية أو الفرنسية عند الاقتضاء.
+
+الهيكل البنيوي للإنفوجرافيك التعليمي المتولد:
+1. بطاقة التفاصيل البيداغوجية والتعريفية (Definition & Profile Panel)
+2. المكونات/التشريح والقطع الأساسية بالتفصيل (Main Components & Anatomy Panel)
+3. آلية السير والتشغيل أو العلاقات الديناميكية (Workflow & Operation Panel)
+4. لوحة الميزات والمواصفات الفنية المتقدمة (Features & Specifications)
+5. لوحة المخاطر والمحاذير والحدود الفنية (Risks, Warnings, or Limitations)
+6. شبكة الفوائد ونقاط القوة والتحسين المستمر (Benefits & Strengths)
+7. تذييل احترافي خاص بضمان جودة مصدر الإنفوجرافيك: "المصدر: منصة الأستاذ المحترف للتكوين APC - منشورات الأستاذ المهنية المميزة لأعضاء صفحتنا الكرام"`;
+
+          userPrompt = `بيانات الإنفوجرافيك البيداغوجي المطلوب توليد محتواه وصياغته للتلاميذ:
+المقرر / الفرع المعرفي: ${subject || "غير محدد"}
+موضوع الإنفوجرافيك بالتفصيل: ${topic || "موضوع تقني غير محدد"}
+النمط وأسلوب التصميم: إنفوجرافيك طولي متميز بأسلوب دليل التاريخ الطبيعي والتحرير الأكاديمي الاستثنائي (Premium Vertical Infographic)
+لغة التسميات والشروحات التقنية: ${language || "العربية الفصحى مع التسميات العلمية والإنجليزية"}`;
+        } else {
+          systemInstruction = `أنت موجه بيداغوجي ومصمم كفاءات خبير في تفكيك العلوم وتجسيد المخططات التقنية وتبسيطها باللغة العربية.
 مهمتك صياغة "دليل بيداغوجي متميز ومفصل" باللغة العربية يشرح المخطط التقني أو الرسم التوضيحي المرفق [Topic].
 احرص على تنظيم الدليل في المخرجات مستعملاً أقسام وعناوين واضحة بالـ Markdown:
 1. مقدمة بيداغوجية شيقة عن تفعيل الكفاءة المستهدفة بالربط مع المخطط البصري.
@@ -171,11 +209,12 @@ ${bulletPoints || "التأكيد على أهمية إحضار كراسات ال
 3. توصيات تربوية للأستاذ حول كيفية استدراج التلاميذ بالأسلوب السقراطي لملاحظة التفاصيل.
 4. شبكة تقييم تكويني سريعة (سؤالين أو ثلاثة لقياس تمكن الطالب من قراءة المخطط).
 اجعل الأسلوب منساباً وتجنب الملل، لتوفر للأستاذ جهداً بليغاً في التحضير والورقيات الإدارية.`;
-        userPrompt = `بيانات المخطط التعليمي المطلوب لشرح المادة:
+          userPrompt = `بيانات المخطط التعليمي المطلوب لشرح المادة:
 المادة/الفرع المعرفي: ${subject || "غير محدد"}
 موضوع المخطط التقني/الصورة المراد شرحها: ${topic || "مكونات اللوحة الأم لخصائص الحاسوب"}
 النمط الفني المقترح للمخطط: ${style || "مخطط تقني مفصل (Technical schematic)"}
 اللغة المفضلة في الشرح والتعليقات: ${language || "العربية الفصحى مع التسميات الإنجليزية والعربية"}`;
+        }
       }
 
       // Generate the vocational context block if provided
@@ -204,12 +243,23 @@ ${bulletPoints || "التأكيد على أهمية إحضار كراسات ال
 
       const generatedText = response.text || "لم يتم توليد أي محتوى، يرجى المحاولة والتحقق من المدخلات.";
 
-      // Multi-modal enhancement: generate an actual image using gemini-2.5-flash-image when requested
+      // Multi-modal enhancement: generate an actual image using gemini-2.1-flash-image / gemini-2.5-flash-image when requested
       let imageUrl = "";
       if (tool === "diagram_generator") {
         try {
           const { topic, style } = params;
-          const imagePrompt = `Detailed high-quality educational technical schematic diagram of: ${topic || "Motherboard components of a computer"}. Style is ${style || "colored schematic line art"}, professional illustrations for classroom use, high resolution, sharp visual details, with blank outline labels, isolated on elegant clean background, 16:9 widescreen layout.`;
+          const isPremiumInfographic = style && (style.includes("Infographic") || style.includes("إنفوجرافيك") || style.includes("infographic"));
+          
+          let imagePrompt = "";
+          let aspectRatio: "16:9" | "3:4" | "4:3" | "1:1" = "16:9";
+
+          if (isPremiumInfographic) {
+            imagePrompt = `Premium vertical educational infographic about [${topic || "Motherboard"}]. STYLE: Premium scientific natural-history guidebook mixed with modern editorial infographic design. Refined, collectible, highly structured. Clean, light-colored background. Soft elegant muted scientific palette with light blues, warm grays, subtle pastel tones, gentle shadows, and soft highlights. High information density but visually uncluttered. Professional Arabic typography with clear hierarchy, consistent spacing, modern layout, and polished visual balance. MAIN VISUAL COMPOSITION: Semi-realistic scientific details and rendering of the subject with soft shading. Main subject positioned in the upper-middle focal area with elegant labels, annotations, arrows, and fine callout lines. AUTOMATIC DETAIL SECTIONS: Zoomed educational diagrams, cross-sections, exploded views and flow arrows visually complementing the main subject with rich educational layout, 3:4 portrait vertical infographic design.`;
+            aspectRatio = "3:4";
+          } else {
+            imagePrompt = `Detailed high-quality educational technical schematic diagram of: ${topic || "Motherboard components of a computer"}. Style is ${style || "colored schematic line art"}, professional illustrations for classroom use, high resolution, sharp visual details, with blank outline labels, isolated on elegant clean background, 16:9 widescreen layout.`;
+            aspectRatio = "16:9";
+          }
           
           const imgResponse = await ai.models.generateContent({
             model: "gemini-2.5-flash-image",
@@ -218,7 +268,7 @@ ${bulletPoints || "التأكيد على أهمية إحضار كراسات ال
             },
             config: {
               imageConfig: {
-                aspectRatio: "16:9"
+                aspectRatio
               }
             }
           });
@@ -243,6 +293,51 @@ ${bulletPoints || "التأكيد على أهمية إحضار كراسات ال
     } catch (error: any) {
       console.error("API Error in Server Generate:", error);
       return res.status(500).json({ error: error.message || "حدث خطأ غير متوقع أثناء توليد المحتوى التعليمي" });
+    }
+  });
+
+  // API Endpoint to transform HTML into real binary Microsoft Word XML (.docx) format
+  app.post("/api/export-docx", async (req: any, res: any) => {
+    try {
+      const { html, title } = req.body;
+      if (!html) {
+        return res.status(400).json({ error: "محتوى المستند مطلوب للتحويل والتصدير" });
+      }
+
+      // Ensure proper structure
+      const parsedHtml = html.includes("<html") ? html : `
+        <html dir="rtl" lang="ar">
+        <head>
+          <meta charset="utf-8">
+        </head>
+        <body style="direction: rtl; text-align: right; font-family: Arial, sans-serif;">
+          ${html}
+        </body>
+        </html>
+      `;
+
+      // Use the library to compile the document asynchronously
+      const fileBuffer = await HTMLtoDOCX(parsedHtml, null, {
+        orientation: "portrait",
+        margins: {
+          top: 1440,
+          bottom: 1440,
+          left: 1440,
+          right: 1440
+        },
+        table: { row: { cantSplit: true } },
+        footer: true,
+        header: true,
+        pageNumber: true
+      });
+
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+      const safeTitle = (title || "مستند_بيداغوجي").replace(/[\\/*?:[\]]/g, "_");
+      res.setHeader("Content-Disposition", `attachment; filename="${encodeURIComponent(safeTitle)}.docx"`);
+      return res.send(fileBuffer);
+    } catch (error: any) {
+      console.error("DOCX Binary Compilation Error:", error);
+      return res.status(500).json({ error: "فشل تجميع مستند Word الثنائي. يرجى إعادة المحاولة من خلال المخدم." });
     }
   });
 

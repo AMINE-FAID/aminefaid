@@ -52,4 +52,5 @@ export interface SavedItem {
   content: string;
   timestamp: string;
   imageUrl?: string;
+  tags?: string[];
 }

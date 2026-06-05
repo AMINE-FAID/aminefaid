@@ -1,9 +1,38 @@
-import { useState, useEffect, useCallback } from "react";
-import { BookOpen, Calendar, Award, FileText, Mail, Sparkles, Clock, Copy, Download, Save, CircleCheck as CheckCircle, CircleAlert as AlertCircle, Plus, Trash2, Heart, TrendingUp, BookOpenCheck, RotateCw, FolderLock, CreditCard as Edit2, Check, ChevronRight, Menu, Coffee, Circle as HelpCircle, Image, LogOut, User, Cloud, CloudOff } from "lucide-react";
+import { useState, useEffect } from "react";
+import { 
+  BookOpen, 
+  Calendar, 
+  Award, 
+  FileText, 
+  File,
+  Mail, 
+  Sparkles, 
+  Clock, 
+  Copy, 
+  Download, 
+  Save, 
+  CheckCircle, 
+  AlertCircle, 
+  Plus, 
+  Trash2, 
+  Heart, 
+  TrendingUp, 
+  BookOpenCheck,
+  RotateCw,
+  FolderLock,
+  Edit2,
+  Check,
+  ChevronRight,
+  Menu,
+  Coffee,
+  HelpCircle,
+  Image,
+  Upload,
+  Search,
+  Filter,
+  Tag
+} from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import { supabase } from "./lib/supabase";
-import type { Session } from "@supabase/supabase-js";
-import AuthPage from "./components/AuthPage";
 
 import {
   uploadToGoogleDrive,
@@ -44,6 +73,8 @@ import {
 import { 
   downloadTextFile, 
   downloadHtmlDocument,
+  downloadDocxDocument,
+  downloadPdfDocument,
   copyToClipboard, 
   TEACHER_WELLNESS_TIPS, 
   PEDAGOGICAL_APC_PILLARS 
@@ -55,7 +86,7 @@ const DIAGRAM_PRESETS = [
     data: {
       subject: "المعلوماتية والتربية التكنولوجية",
       topic: "مكونات اللوحة الأم ومعالج الحاسوب الدقيق والمنافذ",
-      style: "مخطط تخطيطي ملون عالي التقنية (Colored schematic line art)",
+      style: "إنفوجرافيك بيداغوجي طولي متميز (Premium Vertical Infographic)",
       language: "العربية الفصحى مع التسميات الإنجليزية"
     }
   },
@@ -64,7 +95,7 @@ const DIAGRAM_PRESETS = [
     data: {
       subject: "العلوم الفيزيائية والتكنولوجية",
       topic: "الدارة الكهربائية البسيطة والمولد والمستقبلات والقاطعة والأسلاك بأسلوب المقاربة بالكفاءات",
-      style: "مخطط تخطيطي ملون عالي التقنية (Colored schematic line art)",
+      style: "إنفوجرافيك بيداغوجي طولي متميز (Premium Vertical Infographic)",
       language: "العربية والرموز الفيزيائية العالمية"
     }
   },
@@ -73,38 +104,13 @@ const DIAGRAM_PRESETS = [
     data: {
       subject: "علوم الطبيعة والحياة",
       topic: "الخلية الحيوانية وجدارها الخلوي والنواة والميتوكوندريا",
-      style: "مخطط تخطيطي ملون عالي التقنية (Colored schematic line art)",
+      style: "إنفوجرافيك بيداغوجي طولي متميز (Premium Vertical Infographic)",
       language: "العربية الفصحى لطلاب العلوم"
     }
   }
 ];
 
 export default function App() {
-  // Auth State
-  const [session, setSession] = useState<Session | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
-  const [syncStatus, setSyncStatus] = useState<"idle" | "syncing" | "synced" | "error">("idle");
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setAuthLoading(false);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      (async () => {
-        setSession(session);
-        setAuthLoading(false);
-      })();
-    });
-    return () => subscription.unsubscribe();
-  }, []);
-
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    setSavedItems([]);
-  };
-
   // Navigation State
   const [activeTab, setActiveTab] = useState<"tools" | "vocational_curriculums" | "satchel" | "guide" | "google_workspace">("tools");
   const [activeTool, setActiveTool] = useState<ActiveTool>("lesson_planner");
@@ -215,7 +221,7 @@ export default function App() {
   const [diagramParams, setDiagramParams] = useState<DiagramGeneratorParams>({
     subject: "تكنولوجيا المعلومات والاتصال",
     topic: "مكونات اللوحة الأم (Motherboard) ومعالجة البيانات للحاسوب",
-    style: "مخطط تخطيطي ملون عالي التقنية (Colored schematic line art)",
+    style: "إنفوجرافيك بيداغوجي طولي متميز (Premium Vertical Infographic)",
     language: "العربية الفصحى مع التسميات الإنجليزية"
   });
 
@@ -229,55 +235,81 @@ export default function App() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
+  const [importStatus, setImportStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   // Persistence States (Teacher's Satchel)
   const [savedItems, setSavedItems] = useState<SavedItem[]>([]);
+  const [satchelSearchQuery, setSatchelSearchQuery] = useState("");
+  const [satchelCategoryFilter, setSatchelCategoryFilter] = useState("all");
+  const [satchelItemTagInputs, setSatchelItemTagInputs] = useState<{[itemId: string]: string}>({});
   const [timeSaved, setTimeSaved] = useState<number>(14.5); // Dynamic counter in hours
   const [currentTipIndex, setCurrentTipIndex] = useState(0);
 
-  // Load and Save to LocalStorage + Supabase
+  // Helper inside Teachers Satchel to append tags
+  const handleAddTagToItem = (itemId: string, tag: string) => {
+    const trimmed = tag.trim();
+    if (!trimmed) return;
+    const updated = savedItems.map((item) => {
+      if (item.id === itemId) {
+        const existingTags = item.tags || [];
+        if (existingTags.includes(trimmed)) return item;
+        return { ...item, tags: [...existingTags, trimmed] };
+      }
+      return item;
+    });
+    setSavedItems(updated);
+    localStorage.setItem("smart_professor_satchel", JSON.stringify(updated));
+  };
+
+  const handleRemoveTagFromItem = (itemId: string, tagToRemove: string) => {
+    const updated = savedItems.map((item) => {
+      if (item.id === itemId) {
+        const existingTags = item.tags || [];
+        return { ...item, tags: existingTags.filter((t) => t !== tagToRemove) };
+      }
+      return item;
+    });
+    setSavedItems(updated);
+    localStorage.setItem("smart_professor_satchel", JSON.stringify(updated));
+  };
+
+  // Computed filter list for saved items
+  const filteredSavedItems = savedItems.filter((item) => {
+    const matchesSearch = 
+      (item.title || "").toLowerCase().includes(satchelSearchQuery.toLowerCase()) ||
+      (item.content || "").toLowerCase().includes(satchelSearchQuery.toLowerCase()) ||
+      (item.tags || []).some(tag => tag.toLowerCase().includes(satchelSearchQuery.toLowerCase()));
+    const matchesCategory = 
+      satchelCategoryFilter === "all" || 
+      item.tool === satchelCategoryFilter;
+    return matchesSearch && matchesCategory;
+  });
+
+  // Load and Save to LocalStorage
   useEffect(() => {
-    // Load local-only data (programs etc.)
+    const saved = localStorage.getItem("smart_professor_satchel");
+    if (saved) {
+      try {
+        setSavedItems(JSON.parse(saved));
+      } catch (e) {
+        console.error("Failed to parse local history satchel", e);
+      }
+    }
+
+    const savedHours = localStorage.getItem("smart_professor_time_saved");
+    if (savedHours) {
+      setTimeSaved(parseFloat(savedHours));
+    }
+
     const savedProgs = localStorage.getItem("smart_professor_vocational_programs");
     if (savedProgs) {
-      try { setVocationalPrograms(JSON.parse(savedProgs)); } catch (e) { /* ignore */ }
-    }
-    const savedHours = localStorage.getItem("smart_professor_time_saved");
-    if (savedHours) setTimeSaved(parseFloat(savedHours));
-  }, []);
-
-  // Load satchel from Supabase when session changes
-  useEffect(() => {
-    if (!session) {
-      setSavedItems([]);
-      return;
-    }
-    (async () => {
-      setSyncStatus("syncing");
-      const { data, error } = await supabase
-        .from("satchel_items")
-        .select("*")
-        .order("created_at", { ascending: false });
-      if (error) {
-        console.error("Failed to load satchel:", error);
-        setSyncStatus("error");
-        return;
+      try {
+        setVocationalPrograms(JSON.parse(savedProgs));
+      } catch (e) {
+        console.error("Failed to parse custom vocational programs", e);
       }
-      const mapped = (data || []).map((item: any) => ({
-        id: item.id,
-        title: item.title,
-        tool: item.tool as ActiveTool,
-        content: item.content,
-        imageUrl: item.image_url || undefined,
-        timestamp: new Date(item.created_at).toLocaleDateString("ar-EG", {
-          year: "numeric", month: "long", day: "numeric",
-          hour: "2-digit", minute: "2-digit"
-        })
-      }));
-      setSavedItems(mapped);
-      setSyncStatus("synced");
-    })();
-  }, [session]);
+    }
+  }, []);
 
   // Update dynamic time counter index periodically for micro-motivation
   useEffect(() => {
@@ -392,8 +424,8 @@ export default function App() {
     return adminParams;
   };
 
-  // Perform Server API call triggers
-  const handleGenerate = async () => {
+  // Perform Server API call triggers with support for direct overrides
+  const handleGenerate = async (overrideTool?: ActiveTool, overrideParams?: any) => {
     setIsGenerating(true);
     setErrorMsg(null);
     setCopied(false);
@@ -402,11 +434,16 @@ export default function App() {
     setEditableContent("");
     setOutputImageUrl("");
 
+    const targetTool = overrideTool || activeTool;
+    if (overrideTool) {
+      setActiveTool(overrideTool);
+    }
+
     try {
       const currentProg = vocationalPrograms.find(p => p.id === selectedProgramId);
       const currentMod = currentProg?.modules.find(m => m.code === selectedModuleCode);
 
-      const baseParams = currentParamsForActiveTool();
+      const baseParams = overrideParams || (overrideTool ? (overrideTool === "lesson_planner" ? lessonParams : currentParamsForActiveTool()) : currentParamsForActiveTool());
       const payloadParams = currentProg ? {
         ...baseParams,
         programName: currentProg.name,
@@ -418,13 +455,27 @@ export default function App() {
         moduleHours: currentMod?.durationHours
       } : baseParams;
 
+      // Inject explicit system instructions for INFEP Behavioral Lesson Plan schema under MQ1
+      const isMQ1 = `${payloadParams.subject || ""} ${payloadParams.topic || ""} ${payloadParams.moduleCode || ""} ${payloadParams.moduleTitle || ""}`.toUpperCase().includes("MQ1");
+      if (targetTool === "lesson_planner") {
+        payloadParams.infepBehavioralTemplateRequired = true;
+        if (isMQ1) {
+          payloadParams.mq1SpecificPrompt = `نموذج الجدول السلوكي المعتمد في INFEP لدرس مقياس MQ1:
+مهم وبشكل صارم ومقدس: يجب أن يلتزم النموذج اللغوي بتقسيم مخرجات الدرس إلى أعمدة دقيقة ومحددة وهي:
+- العمود الأول: المرحلة (أو المرحلة البيداغوجية: انطلاق وتحفيز، بناء واكتساب المعارف، تطبيق وممارسة، تقييم وخاتمة).
+- العمود الثاني: الأنشطة (الأنشطة البيداغوجية بالتفصيل - تقسيم واضح ومنفصل لنشاط المكوّن ونشاط المتربص).
+- العمود الثالث: التقييم التكويني (معايير الأداء والتحقق الفوري وصيغ تقييم تطور كفاءات المتربصين).
+- العمود الرابع: المدة الزمنية المحددة لكل مرحلة.`;
+        }
+      }
+
       const response = await fetch("/api/generate", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          tool: activeTool,
+          tool: targetTool,
           params: payloadParams
         })
       });
@@ -454,8 +505,8 @@ export default function App() {
     }
   };
 
-  // Save Generated item into portfolio/satchel
-  const handleSaveToSatchel = async () => {
+  // Save Generated item into portfolio/satchel in localStorage
+  const handleSaveToSatchel = () => {
     if (!editableContent.trim()) return;
 
     let titleText = "";
@@ -466,68 +517,162 @@ export default function App() {
     else if (activeTool === "diagram_generator") titleText = `مخطط بيداغوجي: ${diagramParams.topic}`;
     else titleText = `مراسلة إدارية: ${adminParams.documentType.slice(0, 30)}...`;
 
-    const timestamp = new Date().toLocaleDateString("ar-EG", {
-      year: "numeric", month: "long", day: "numeric",
-      hour: "2-digit", minute: "2-digit"
-    });
+    const newItem: SavedItem = {
+      id: "sav_" + Date.now(),
+      title: titleText,
+      tool: activeTool,
+      content: editableContent,
+      imageUrl: outputImageUrl,
+      timestamp: new Date().toLocaleDateString("ar-EG", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+      })
+    };
 
-    if (session) {
-      setSyncStatus("syncing");
-      const { data, error } = await supabase
-        .from("satchel_items")
-        .insert({
-          title: titleText,
-          tool: activeTool,
-          content: editableContent,
-          image_url: outputImageUrl || null
-        })
-        .select()
-        .single();
-
-      if (error) {
-        console.error("Failed to save to Supabase:", error);
-        setSyncStatus("error");
-        return;
-      }
-      const newItem: SavedItem = {
-        id: data.id,
-        title: titleText,
-        tool: activeTool,
-        content: editableContent,
-        imageUrl: outputImageUrl || undefined,
-        timestamp
-      };
-      setSavedItems(prev => [newItem, ...prev]);
-      setSyncStatus("synced");
-    } else {
-      // Fallback: localStorage only
-      const newItem: SavedItem = {
-        id: "sav_" + Date.now(),
-        title: titleText,
-        tool: activeTool,
-        content: editableContent,
-        imageUrl: outputImageUrl || undefined,
-        timestamp
-      };
-      const updated = [newItem, ...savedItems];
-      setSavedItems(updated);
-      localStorage.setItem("smart_professor_satchel", JSON.stringify(updated));
-    }
-
+    const updated = [newItem, ...savedItems];
+    setSavedItems(updated);
+    localStorage.setItem("smart_professor_satchel", JSON.stringify(updated));
+    
     setJustSaved(true);
     setTimeout(() => setJustSaved(false), 3000);
   };
 
-  // Delete Item from portfolio
-  const handleDeleteFromSatchel = async (id: string) => {
-    if (session) {
-      const { error } = await supabase.from("satchel_items").delete().eq("id", id);
-      if (error) { console.error("Delete error:", error); return; }
-    } else {
-      const updated = savedItems.filter((item) => item.id !== id);
-      localStorage.setItem("smart_professor_satchel", JSON.stringify(updated));
+  // Delete Item from local history portfolio
+  const handleDeleteFromSatchel = (id: string) => {
+    const updated = savedItems.filter((item) => item.id !== id);
+    setSavedItems(updated);
+    localStorage.setItem("smart_professor_satchel", JSON.stringify(updated));
+  };
+
+  // Export entire project state as a single .md file
+  const handleExportProjectState = () => {
+    const timestamp = new Date().toLocaleDateString("ar-EG", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+
+    const exportPayload = {
+      system: "Smart Professor الجزائر v2.0",
+      exportTimestamp: new Date().toISOString(),
+      payload: {
+        timeSaved,
+        savedItems,
+        vocationalPrograms
+      }
+    };
+
+    const markdownText = `# 📂 مشروع الأستاذ الذكي - ملف استعادة وبناء بيداغوجي متكامل
+هذا الملف يحتوي على الحالة الكاملة لمشروعك التربوي بجميع المقاييس والخطط ومؤشرات الإنجاز المبرمجة بالذكاء الاصطناعي.
+
+> **💡 للتنشيط والاستئناف:** يمكنك رفع هذا الملف إلى أي نموذج ذكي (مثل Gemini) أو إعادة استيراده داخل التطبيق مباشرة لاستعادة حالة العمل فوراً.
+
+---
+
+## 📊 مقاييس الأداء والإنجاز الرقمي
+- **إجمالي الوقت الموفر بفضل الذكاء الاصطناعي:** ${timeSaved} ساعة بيداغوجية.
+- **عدد المستندات في الحقيبة البيداغوجية:** ${savedItems.length} مستند.
+- **تاريخ التصدير:** ${timestamp}
+
+---
+
+## 🏛️ برامج التكوين المهني والمناهج (البرامج المخصصة والمدخلة)
+هنا قائمة بالبرامج المتاحة والمقاييس المبرمجة كاملة:
+\`\`\`json
+${JSON.stringify(vocationalPrograms, null, 2)}
+\`\`\`
+
+---
+
+## 💼 حقيبة المستندات البيداغوجية المحفوظة (Satchel Documents)
+تحميل وحفظ الدروس وحقيبة المتربص:
+\`\`\`json
+${JSON.stringify(savedItems, null, 2)}
+\`\`\`
+
+---
+
+## 📐 المعمارية الهندسية والتعليمات البرمجية الأساسية (Prompts & Architecture)
+حتى يفهم أي ذكاء اصطناعي آخر القواعد والأدوار، إليك المعمارية المعتمدة والتلقينات المصممة المسؤولة عن هذا المشروع:
+
+### 1️⃣ موجه التخطيط السلوكي المعتمد لـ INFEP (Lesson Planner Prompt)
+- **الكفاءة المستهدفة:** صياغة خطة درس سلوكية مفصلة بجدول ذي 4 أعمدة رئيسية (المرحلة البيداغوجية، الأنشطة البيداغوجية بالتفصيل: نشاط المكون | نشاط المتربص، التقييم التكويني معايير الأداء والتحقق الفوري، المدة الزمنية) متوافق تماماً مع المقاربة بالكفاءات (APC) ومقاييس (MQ1) لتجميع العتاد.
+
+### 2️⃣ موجه هندسة المناهج والتوزيعات الفصلية (Curriculum Planner Prompt)
+- **الكفاءة المستهدفة:** تحضير توزيع زمني سلوكي بالصيغة الجزائرية المعتمدة للأغراض الوسطية وعناصر المحتوى ومؤشرات الكفاءة والتقييم المستمر.
+
+### 3️⃣ موجه صياغة ومراقبة التقييمات المعيارية (Assessment Generator Prompt)
+- **الكفاءة المستهدفة:** توليد اختبارات ومقاييس تقييمية بيداغوجية موضوعية تحتوي أسئلة متدرجة الصعوبة وشبكات تصحيح بيداغوجية دقيقة للطلاب والمتربصين.
+
+### 4️⃣ موجه الذكاء الرسومي لتوليد المخططات (Diagram Generator Prompt)
+- **الكفاءة المستهدفة:** تصميم المخططات التعليمية بالأكواد الهيكلية المدمجة لتطبيقات تجميع وتثبيت العتاد والبرمجيات والمنافذ.
+
+---
+
+## 🚀 المعطيات التقنية المباشرة المشفرة (Application Export Payload)
+\`\`\`json
+${JSON.stringify(exportPayload, null, 2)}
+\`\`\`
+`;
+
+    const blob = new Blob([markdownText], { type: "text/markdown;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `مشروع_الأستاذ_الذكي_${new Date().toISOString().slice(0, 10)}.md`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleImportProjectState = (fileText: string) => {
+    try {
+      const regex = /\{\s*"system"\s*:\s*"Smart Professor[^"]*",[\s\S]*?"payload"[\s\S]*?\}/;
+      const match = fileText.match(regex);
+      if (!match) {
+        throw new Error("لم يتم العثور على تشفير صالح لبيانات المشروع داخل ملف الـ .md المرفوع. تأكد من رفع ملف مشروع تم تصديره من هذا النظام سابقاً.");
+      }
+
+      const parsed = JSON.parse(match[0]);
+      if (!parsed.payload) {
+        throw new Error("الملف لا يحتوي على حاويات مشفرة صالحة (Missing Payload).");
+      }
+
+      const { timeSaved: importedTime, savedItems: importedItems, vocationalPrograms: importedProgs } = parsed.payload;
+
+      if (importedTime !== undefined) {
+        setTimeSaved(importedTime);
+        localStorage.setItem("smart_professor_time_saved", importedTime.toString());
+      }
+
+      if (importedItems) {
+        setSavedItems(importedItems);
+        localStorage.setItem("smart_professor_satchel", JSON.stringify(importedItems));
+      }
+
+      if (importedProgs) {
+        setVocationalPrograms(importedProgs);
+        localStorage.setItem("smart_professor_vocational_programs", JSON.stringify(importedProgs));
+      }
+
+      setImportStatus({
+        type: "success",
+        message: "تمت استعادة حالة مشروعك بالكامل بنجاح! تم استدعاء المقاييس، والمستندات المحفوظة، وتخصيصات المناهج بدقة."
+      });
+      setTimeout(() => setImportStatus(null), 6000);
+    } catch (err: any) {
+      console.error("Import error:", err);
+      setImportStatus({
+        type: "error",
+        message: err.message || "حدث خطأ أثناء فك تشفير واستيراد ملف المشروع. يرجى مراجعة محتويات الملف والتحقق من سلامته."
+      });
+      setTimeout(() => setImportStatus(null), 6000);
     }
-    setSavedItems(prev => prev.filter((item) => item.id !== id));
   };
 
   // Copy with UI state feedback
@@ -567,6 +712,59 @@ export default function App() {
     }
 
     downloadHtmlDocument(filename, titleStr, textToWrite, outputImageUrl || undefined);
+  };
+
+  // Word DOCX document download
+  const handleDownloadDocx = () => {
+    const textToWrite = isEditing ? editableContent : outputResult;
+    let filename = "";
+    let titleStr = "وثيقة تربوية بيداغوجية";
+
+    const cleanName = (name: string) => (name || "").trim().replace(/\s+/g, "_");
+
+    if (activeTool === "lesson_planner") {
+      filename = `خطة_درس_${cleanName(lessonParams.topic)}.docx`;
+      titleStr = `خطة درس: ${lessonParams.topic}`;
+    } else if (activeTool === "curriculum_planner") {
+      filename = `مخطط_مادة_${cleanName(curriculumParams.course)}.docx`;
+      titleStr = `مخطط وتوزيع مقياس: ${curriculumParams.course}`;
+    } else if (activeTool === "assessment_generator") {
+      filename = `ملف_تقييم_${cleanName(assessmentParams.topic)}.docx`;
+      titleStr = `ملف تقييم ومراقبة: ${assessmentParams.topic}`;
+    } else if (activeTool === "performance_report") {
+      filename = `تقرير_طلاب_${cleanName(reportParams.classGroup)}.docx`;
+      titleStr = `تقرير بيداغوجي لنتائج الطلاب: ${reportParams.classGroup}`;
+    } else if (activeTool === "diagram_generator") {
+      filename = `مخطط_توضيحي_${cleanName(diagramParams.topic)}.docx`;
+      titleStr = `مخطط توضيحي بيداغوجي: ${diagramParams.topic}`;
+    } else {
+      filename = `وثيقة_إدارية_${cleanName(adminParams.recipient)}.docx`;
+      titleStr = `وثيقة إدارية بيداغوجية: ${adminParams.recipient}`;
+    }
+
+    downloadDocxDocument(filename, titleStr, textToWrite, outputImageUrl || undefined);
+  };
+
+  // PDF document print/download
+  const handleDownloadPdf = () => {
+    const textToWrite = isEditing ? editableContent : outputResult;
+    let titleStr = "وثيقة تربوية بيداغوجية";
+
+    if (activeTool === "lesson_planner") {
+      titleStr = `خطة درس: ${lessonParams.topic}`;
+    } else if (activeTool === "curriculum_planner") {
+      titleStr = `مخطط وتوزيع مقياس: ${curriculumParams.course}`;
+    } else if (activeTool === "assessment_generator") {
+      titleStr = `ملف تقييم ومراقبة: ${assessmentParams.topic}`;
+    } else if (activeTool === "performance_report") {
+      titleStr = `تقرير بيداغوجي لنتائج الطلاب: ${reportParams.classGroup}`;
+    } else if (activeTool === "diagram_generator") {
+      titleStr = `مخطط توضيحي بيداغوجي: ${diagramParams.topic}`;
+    } else {
+      titleStr = `وثيقة إدارية بيداغوجية: ${adminParams.recipient}`;
+    }
+
+    downloadPdfDocument(titleStr, textToWrite, outputImageUrl || undefined);
   };
 
   // --- GOOGLE WORKSPACE API HANDLERS ---
@@ -892,7 +1090,7 @@ export default function App() {
           if (trimmed.startsWith("## ")) {
             return (
               <h2 key={idx} className="text-xl font-bold text-white flex items-center gap-2 mt-5 font-sans">
-                <span className="w-1.5 h-5 bg-gradient-to-b from-blue-500 to-sky-500 rounded-full inline-block"></span>
+                <span className="w-1.5 h-5 bg-gradient-to-b from-indigo-500 to-violet-500 rounded-full inline-block"></span>
                 {trimmed.replace("## ", "")}
               </h2>
             );
@@ -900,7 +1098,7 @@ export default function App() {
           // Header H3
           if (trimmed.startsWith("### ")) {
             return (
-              <h3 key={idx} className="text-lg font-semibold text-blue-300 mt-4 underline decoration-blue-500/30 decoration-2">
+              <h3 key={idx} className="text-lg font-semibold text-indigo-300 mt-4 underline decoration-indigo-500/30 decoration-2">
                 {trimmed.replace("### ", "")}
               </h3>
             );
@@ -932,21 +1130,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#030712] text-slate-100 font-sans antialiased overflow-x-hidden relative">
-
-      {/* Auth Gate */}
-      {authLoading && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#030712]">
-          <div className="flex flex-col items-center gap-4">
-            <div className="w-10 h-10 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
-            <p className="text-slate-400 text-sm" style={{ fontFamily: "Tajawal, sans-serif" }}>جاري تحميل المنصة...</p>
-          </div>
-        </div>
-      )}
-      {!authLoading && !session && (
-        <AuthPage onAuthenticated={() => {}} />
-      )}
-      {!authLoading && session && (
-      <div className="min-h-screen">
+      
       {/* Background ambient glows */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
         <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-violet-600/10 blur-[120px] pointer-events-none" />
@@ -983,70 +1167,32 @@ export default function App() {
       </div>
 
       {/* Main Professional Header Block */}
-      <header className="bg-slate-950/40 border-b border-white/10 backdrop-blur-lg py-5 px-4 md:px-8 shadow-md relative z-10">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+      <header className="bg-slate-950/40 border-b border-white/10 backdrop-blur-lg py-6 px-4 md:px-8 shadow-md relative z-10">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-4 text-right">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-slate-900 via-blue-950 to-slate-800 flex items-center justify-center text-blue-400 shadow-lg border border-white/10 pulsing-glow">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-slate-900 via-indigo-950 to-slate-800 flex items-center justify-center text-amber-400 shadow-lg border border-white/10 pulsing-glow">
               <Sparkles className="w-7 h-7" />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-2xl font-black text-white tracking-tight font-sans">الأستاذ الذكي</h1>
-                <span className="text-xs bg-gradient-to-r from-blue-500/20 to-sky-500/20 text-blue-300 border border-blue-500/25 font-bold px-2.5 py-1 rounded-full font-sans shadow-sm">مساعد الأستاذ الفائق</span>
+                <span className="text-xs bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-amber-300 border border-amber-500/25 font-bold px-2.5 py-1 rounded-full font-sans shadow-sm">مساعد الأستاذ الفائق</span>
               </div>
               <p className="text-xs md:text-sm text-slate-400 font-sans mt-1">
-                المنصة البيداغوجية الذكية للمقاربة بالكفاءات (APC) · التكوين والتعليم المهني
+                المنصة البيدغوجية الذكية لتصميم المناهج وتخطيط الدروس وصياغة المراسلات بالمقاربة بالكفاءات (APC)
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            {/* Sync Status */}
-            <div className="flex items-center gap-1.5 text-xs">
-              {syncStatus === "syncing" && (
-                <span className="flex items-center gap-1 text-blue-400">
-                  <span className="w-3 h-3 border border-blue-400/40 border-t-blue-400 rounded-full animate-spin" />
-                  مزامنة...
-                </span>
-              )}
-              {syncStatus === "synced" && (
-                <span className="flex items-center gap-1 text-emerald-400">
-                  <Cloud size={13} />
-                  محفوظ
-                </span>
-              )}
-              {syncStatus === "error" && (
-                <span className="flex items-center gap-1 text-red-400">
-                  <CloudOff size={13} />
-                  خطأ في المزامنة
-                </span>
-              )}
-            </div>
-
-            {/* Time saved */}
-            <div className="hidden sm:flex items-center gap-3 bg-white/5 text-slate-100 py-2.5 px-4 rounded-xl shadow-md border border-white/10">
-              <TrendingUp className="w-4 h-4 text-blue-400" />
-              <div className="text-right">
-                <div className="text-blue-400 text-lg font-black leading-none">{timeSaved}<span className="text-xs font-medium text-slate-400 mr-1">ساعة</span></div>
-                <p className="text-[10px] text-slate-400 mt-0.5">وقت موفّر</p>
+          {/* Teacher's Work-Life Statistics Card */}
+          <div className="flex items-center gap-4 bg-white/5 backdrop-blur-md text-slate-100 p-4 rounded-2xl shadow-md border border-white/10 hover:border-white/15 transition-all">
+            <TrendingUp className="w-10 h-10 text-amber-400 hidden sm:block bg-amber-500/10 p-2 rounded-xl" />
+            <div className="text-right">
+              <div className="text-amber-400 text-2xl font-black flex items-center gap-1 leading-none">
+                <span>{timeSaved}</span>
+                <span className="text-xs font-medium text-slate-400 mr-1">ساعة</span>
               </div>
-            </div>
-
-            {/* User + signout */}
-            <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl py-2 px-3">
-              <div className="w-7 h-7 rounded-full bg-blue-600/20 border border-blue-500/30 flex items-center justify-center">
-                <User size={14} className="text-blue-400" />
-              </div>
-              <span className="text-xs text-slate-300 font-medium hidden sm:block max-w-[140px] truncate">
-                {session.user.email}
-              </span>
-              <button
-                onClick={handleSignOut}
-                title="تسجيل الخروج"
-                className="text-slate-500 hover:text-red-400 transition-colors p-1 rounded-lg hover:bg-red-500/10 cursor-pointer"
-              >
-                <LogOut size={14} />
-              </button>
+              <p className="text-[10px] text-slate-300 font-sans mt-1">إجمالي الوقت الإداري والورقي الموفّر لك هذا الأسبوع</p>
             </div>
           </div>
         </div>
@@ -1060,12 +1206,12 @@ export default function App() {
             <button
               onClick={() => { setActiveTab("tools"); setErrorMsg(null); }}
               className={`flex items-center gap-2 py-4 px-3 text-sm font-bold border-b-2 transition-all cursor-pointer whitespace-nowrap ${
-                activeTab === "tools"
-                  ? "border-blue-400 text-blue-300"
+                activeTab === "tools" 
+                  ? "border-indigo-400 text-indigo-300" 
                   : "border-transparent text-slate-400 hover:text-slate-200"
               }`}
             >
-              <Sparkles className="w-4 h-4 text-blue-400" />
+              <Sparkles className="w-4 h-4 text-amber-500 animate-pulse" />
               <span>الأدوات والحلول الذكية للأستاذ</span>
             </button>
 
@@ -1104,12 +1250,12 @@ export default function App() {
             <button
               onClick={() => { setActiveTab("guide"); setErrorMsg(null); }}
               className={`flex items-center gap-2 py-4 px-3 text-sm font-bold border-b-2 transition-all cursor-pointer whitespace-nowrap ${
-                activeTab === "guide"
-                  ? "border-blue-400 text-blue-300"
+                activeTab === "guide" 
+                  ? "border-indigo-400 text-indigo-300" 
                   : "border-transparent text-slate-400 hover:text-slate-200"
               }`}
             >
-              <HelpCircle className="w-4 h-4 text-blue-400" />
+              <HelpCircle className="w-4 h-4 text-indigo-400" />
               <span>دليل المقاربة بالكفاءة (APC)</span>
             </button>
 
@@ -1364,16 +1510,84 @@ export default function App() {
                         </div>
                       </div>
 
-                      <div>
-                        <label className="text-xs font-bold text-slate-400 block mb-1.5">عنوان موضوع الدرس بالتفصيل</label>
-                        <input 
-                           type="text" 
-                           value={lessonParams.topic} 
-                           onChange={(e) => setLessonParams({ ...lessonParams, topic: e.target.value })}
-                           placeholder="مثال: ظاهرة انكسار الضوء"
-                           className="w-full bg-[#030712]/50 border border-white/10 hover:border-white/15 p-2 px-3 text-xs md:text-sm rounded-xl text-right text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
-                        />
-                      </div>
+                      {(() => {
+                        const lessonsProg = vocationalPrograms.find(p => p.id === selectedProgramId);
+                        const lessonsMod = lessonsProg?.modules.find(m => m.code === selectedModuleCode);
+                        const suggestedLessons = lessonsMod ? getSuggestedTopicsForModule(lessonsMod.code, lessonsMod.title) : [];
+
+                        return (
+                          <div className="space-y-3">
+                            <div>
+                              <div className="flex justify-between items-center mb-1.5 flex-row-reverse">
+                                <label className="text-xs font-bold text-slate-400">عنوان موضوع الدرس بالتفصيل</label>
+                                {suggestedLessons.length > 0 && (
+                                  <span className="text-[10px] text-amber-400 font-bold">المقياس المفتوح: {lessonsMod?.code || selectedModuleCode}</span>
+                                )}
+                              </div>
+                              
+                              {suggestedLessons.length > 0 && (
+                                <div className="mb-2">
+                                  <select
+                                    value={suggestedLessons.includes(lessonParams.topic) ? lessonParams.topic : ""}
+                                    onChange={(e) => {
+                                      if (e.target.value) {
+                                        setLessonParams({ ...lessonParams, topic: e.target.value });
+                                      }
+                                    }}
+                                    className="w-full bg-slate-950/95 text-right text-amber-300 border border-amber-500/30 hover:border-amber-400/50 rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-amber-500 font-sans outline-none transition-colors mb-2 cursor-pointer"
+                                  >
+                                    <option value="" className="text-slate-400 bg-slate-950">📋 اختر درساً من قائمة دروس المقياس المنهجية...</option>
+                                    {suggestedLessons.map((les, idx) => (
+                                      <option key={idx} value={les} className="text-slate-100 bg-slate-950">
+                                        الدرس {idx + 1}: {les}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                              )}
+
+                              <input 
+                                 type="text" 
+                                 value={lessonParams.topic} 
+                                 onChange={(e) => setLessonParams({ ...lessonParams, topic: e.target.value })}
+                                 placeholder="مثال: ظاهرة انكسار الضوء"
+                                 className="w-full bg-[#030712]/50 border border-white/10 hover:border-white/15 p-2 px-3 text-xs md:text-sm rounded-xl text-right text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all font-sans"
+                              />
+                            </div>
+
+                            {suggestedLessons.length > 0 && (
+                              <div className="bg-[#030712]/30 p-2.5 rounded-xl border border-white/5 space-y-1.5">
+                                <span className="text-[10px] text-slate-400 font-bold block">مخطط الدروس المتوفرة بالمقياس لتحديدها فوراً:</span>
+                                <div className="grid grid-cols-1 gap-1.5">
+                                  {suggestedLessons.map((les, idx) => {
+                                    const isSelected = lessonParams.topic === les;
+                                    return (
+                                      <button
+                                        key={idx}
+                                        type="button"
+                                        onClick={() => setLessonParams({ ...lessonParams, topic: les })}
+                                        className={`text-right text-[11px] p-2 rounded-lg border font-sans cursor-pointer transition-all duration-200 flex items-center justify-between gap-2 flex-row-reverse ${
+                                          isSelected 
+                                            ? "bg-amber-500/20 text-amber-300 border-amber-500/50 font-black shadow-inner" 
+                                            : "bg-slate-950/45 text-slate-300 border-white/5 hover:border-white/15 hover:bg-slate-950/80"
+                                        }`}
+                                      >
+                                        <span className="flex items-center gap-1.5 flex-row-reverse">
+                                          <span className="w-5 h-5 rounded-full bg-slate-900 border border-white/10 flex items-center justify-center text-[10px] text-slate-400 font-bold">{idx + 1}</span>
+                                          <span className="truncate">{les}</span>
+                                        </span>
+                                        {isSelected && (
+                                          <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-md font-bold">محدد حالياً</span>
+                                        )}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
 
                       <div className="grid grid-cols-2 gap-4">
                         <div>
@@ -1484,6 +1698,98 @@ export default function App() {
                           className="w-full bg-[#030712]/50 border border-white/10 hover:border-white/15 p-2 px-3 text-xs md:text-sm rounded-xl text-right text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
                         />
                       </div>
+
+                      {(() => {
+                        const lessonsProg = vocationalPrograms.find(p => p.id === selectedProgramId);
+                        const lessonsMod = lessonsProg?.modules.find(m => m.code === selectedModuleCode);
+                        const suggestedLessons = lessonsMod ? getSuggestedTopicsForModule(lessonsMod.code, lessonsMod.title) : [];
+
+                        if (suggestedLessons.length === 0) return null;
+
+                        return (
+                          <div className="bg-slate-950/45 p-4 rounded-xl border border-white/5 space-y-3 mt-4 text-right">
+                            <div className="flex flex-row-reverse items-center justify-between">
+                              <span className="text-xs font-black text-amber-400 font-sans flex items-center gap-1.5 flex-row-reverse">
+                                <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                                <span>قائمة الدروس المستخرجة منهجياً لدورة ({lessonsMod?.title}):</span>
+                              </span>
+                              <span className="text-[10px] bg-slate-900 border border-white/10 px-2 py-0.5 rounded-full text-slate-400 font-bold font-sans shrink-0">
+                                {suggestedLessons.length} دروس رئيسية
+                              </span>
+                            </div>
+                            
+                            <p className="text-[11px] text-slate-400 leading-relaxed font-sans">
+                              تتوزّع هذه الوحدات التعليمية على الفصل بالتوالي. انقر على أي درس لتحدده كنشاط نشط أو لتوليد خطته البيداغوجية السلوكية بضغطة زر واحدة:
+                            </p>
+
+                            <div className="grid grid-cols-1 gap-2 mt-2">
+                              {suggestedLessons.map((les, idx) => {
+                                const isSelectedInLessonPlanner = lessonParams.topic === les;
+                                return (
+                                  <div 
+                                    key={idx}
+                                    className={`p-3 rounded-lg border text-right transition-all flex flex-col md:flex-row justify-between items-start md:items-center gap-3 ${
+                                      isSelectedInLessonPlanner
+                                        ? "bg-amber-950/20 border-amber-500/30 shadow-inner" 
+                                        : "bg-slate-900/60 border-white/5 hover:border-white/15"
+                                    }`}
+                                  >
+                                    <div className="flex items-start gap-2 flex-row-reverse flex-1">
+                                      <span className="w-5 h-5 rounded-full bg-slate-950 border border-white/10 flex items-center justify-center text-[10px] text-slate-400 font-bold shrink-0 mt-0.5">
+                                        {idx + 1}
+                                      </span>
+                                      <p className="text-[11px] font-bold text-slate-100 font-sans leading-relaxed text-right">
+                                        {les}
+                                      </p>
+                                    </div>
+
+                                    <div className="flex gap-2 w-full md:w-auto shrink-0 flex-row-reverse">
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setLessonParams({
+                                            ...lessonParams,
+                                            subject: `${lessonsProg?.name} - مقياس: ${lessonsMod?.code}`,
+                                            topic: les,
+                                            grade: lessonsProg?.diploma || "",
+                                            duration: "90",
+                                            focus: `المقاربة بالكفاءات (APC) لورشة التخريج في: ${lessonsMod?.title}. ملخص البنيات: ${lessonsMod?.description.slice(0, 100)}`
+                                          });
+                                          setActiveTool("lesson_planner");
+                                          setActiveTab("tools");
+                                        }}
+                                        className="flex-1 md:flex-initial bg-slate-950 text-[10px] font-black text-slate-200 border border-white/10 hover:bg-slate-900 hover:border-white/20 px-3 py-2 rounded-lg transition-all font-sans cursor-pointer flex items-center justify-center gap-1.5"
+                                      >
+                                        <BookOpen className="w-3 h-3 text-amber-400" />
+                                        <span>تحديد الدرس</span>
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const customParams = {
+                                            subject: `${lessonsProg?.name} - مقياس: ${lessonsMod?.code}`,
+                                            topic: les,
+                                            grade: lessonsProg?.diploma || "",
+                                            duration: "90",
+                                            focus: `المقاربة بالكفاءات (APC) لورشة التخريج في: ${lessonsMod?.title}. ملخص البنيات: ${lessonsMod?.description.slice(0, 100)}`
+                                          };
+                                          setLessonParams(customParams);
+                                          handleGenerate("lesson_planner", customParams);
+                                        }}
+                                        className="flex-1 md:flex-initial bg-amber-500 hover:bg-amber-600 text-slate-950 text-[10px] font-black px-3 py-2 rounded-lg transition-all font-sans cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 shadow-md shadow-amber-500/10"
+                                      >
+                                        <Sparkles className="w-3 h-3" />
+                                        <span>توليد الخطة</span>
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
                   )}
 
@@ -1748,6 +2054,7 @@ export default function App() {
                           onChange={(e) => setDiagramParams({ ...diagramParams, style: e.target.value })}
                           className="w-full bg-[#030712]/60 border border-white/10 hover:border-white/15 p-2 px-3 text-xs md:text-sm rounded-xl text-right text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all cursor-pointer font-sans"
                         >
+                          <option value="إنفوجرافيك بيداغوجي طولي متميز (Premium Vertical Infographic)" className="bg-slate-950 text-indigo-400 font-bold">✨ إنفوجرافيك تعليمي طولي متميز بأسلوب بيداغوجي تفصيلي</option>
                           <option value="مخطط تخطيطي ملون عالي الدقة (Colored schematic line art)" className="bg-slate-950">مخطط تخطيطي ملون مخصص للأستاذ</option>
                           <option value="رسم خطي تقني دقيق باللونين الأسود والأبيض (Black & White Technical Schematic)" className="bg-slate-950">رسم خطي تقني أبيض وأسود للطباعة</option>
                           <option value="تفكيك ثلاثي الأبعاد هندسي متميز (3D Architectural Exploded Diagram)" className="bg-slate-950">عرض هندسي متفكك ثلاثي الأبعاد</option>
@@ -1912,28 +2219,36 @@ export default function App() {
 
                             <button
                               onClick={handleDownload}
-                              className="bg-[#2563eb]/20 border border-[#3b82f6]/30 hover:bg-[#2563eb]/35 text-blue-300 hover:text-white font-black px-4 py-2 rounded-lg text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-xs font-sans"
+                              className="bg-emerald-600/10 border border-emerald-500/20 hover:bg-emerald-600/20 text-emerald-300 hover:text-white font-black px-4 py-2 rounded-lg text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-xs font-sans"
                             >
-                              <Download className="w-3.5 h-3.5 text-blue-400" />
+                              <Download className="w-3.5 h-3.5 text-emerald-400" />
                               <span>تحميل المستند المنسق (.html)</span>
+                            </button>
+
+                            <button
+                              onClick={handleDownloadDocx}
+                              className="bg-blue-600/10 border border-blue-500/20 hover:bg-blue-600/20 text-blue-300 hover:text-white font-black px-4 py-2 rounded-lg text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-xs font-sans"
+                            >
+                              <FileText className="w-3.5 h-3.5 text-blue-400" />
+                              <span>تصدير ملف Word (.docx)</span>
+                            </button>
+
+                            <button
+                              onClick={handleDownloadPdf}
+                              className="bg-rose-600/10 border border-rose-500/20 hover:bg-rose-600/20 text-rose-300 hover:text-white font-black px-4 py-2 rounded-lg text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-xs font-sans"
+                            >
+                              <File className="w-3.5 h-3.5 text-rose-400" />
+                              <span>تصدير ملف PDF (.pdf)</span>
                             </button>
                           </div>
 
                           <div className="flex items-center gap-2 font-sans font-sans">
                             <button
                               onClick={handleSaveToSatchel}
-                              className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-4 py-2 rounded-lg text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-md shadow-blue-500/10 border border-blue-500/30"
+                              className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-4 py-2 rounded-lg text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-md shadow-indigo-500/10 border border-indigo-500/30"
                             >
-                              {syncStatus === "syncing" ? (
-                                <span className="w-3 h-3 border border-white/30 border-t-white rounded-full animate-spin" />
-                              ) : justSaved ? (
-                                <Check className="w-3.5 h-3.5 text-emerald-300 animate-pulse" />
-                              ) : session ? (
-                                <Cloud className="w-3.5 h-3.5 text-blue-200" />
-                              ) : (
-                                <Save className="w-3.5 h-3.5 text-blue-200" />
-                              )}
-                              <span>{justSaved ? "تم الحفظ!" : session ? "حفظ في السحابة" : "حفظ في حقيبتي"}</span>
+                              <Save className="w-3.5 h-3.5 text-amber-300" />
+                              <span>{justSaved ? "تم الحفظ محلياً!" : "حفظ في حقيبتي"}</span>
                             </button>
                           </div>
                         </div>
@@ -2021,7 +2336,7 @@ export default function App() {
                             }`}
                           >
                             {/* Card Header Selector row */}
-                            <div className="p-4 flex flex-col sm:flex-row-reverse sm:items-center justify-between gap-3 bg-[#030712]/30">
+                            <div className="p-4 flex flex-col sm:flex-row-reverse sm:items-center justify-between gap-3 bg-[#030712]/30 font-sans">
                               <div className="flex items-start gap-3">
                                 <div className="p-2 bg-slate-900 rounded-lg text-amber-400 border border-white/5">
                                   <Award className="w-5 h-5" />
@@ -2130,18 +2445,18 @@ export default function App() {
                 <div className="lg:col-span-5 space-y-6">
                   <div className="bg-slate-900/40 backdrop-blur-md rounded-2xl p-6 shadow-md border border-white/10 space-y-5">
                     <h3 className="text-sm font-black text-white flex items-center gap-2 border-b pb-3 border-white/10 justify-end">
-                      <span>إضافة برنامج تكوين مخصص لمدرستك</span>
-                      <Plus className="w-4 h-4 text-amber-500" />
+                      <span>إدراج برنامج تعليمي مخصص</span>
+                      <Plus className="w-4 h-4 text-amber-400" />
                     </h3>
 
                     <div className="space-y-4 text-right">
                       <div>
-                        <label className="text-xs font-bold text-slate-400 block mb-1.5 font-sans">اسم تخصص البرنامج (مثال: تقني سامي شبكات)</label>
+                        <label className="text-xs font-bold text-slate-400 block mb-1.5 font-sans">اسم البرنامج / التخصص المالي أو التقني</label>
                         <input
                           type="text"
                           value={newProgName}
                           onChange={(e) => setNewProgName(e.target.value)}
-                          placeholder="مثال: مستغل المعلوماتية أو تقني محاسبة"
+                          placeholder="مثال: تقني سامي في المعلوماتية"
                           className="w-full bg-[#030712]/50 border border-white/10 p-2.5 px-3 text-xs md:text-sm rounded-xl text-right text-slate-100 focus:outline-none focus:border-amber-500 transition-all font-sans"
                         />
                       </div>
@@ -2183,13 +2498,13 @@ export default function App() {
                       {/* Modular integration Sub-form for Adding individual Modules */}
                       <div className="p-4 bg-white/5 border border-white/5 rounded-xl space-y-4">
                         <div className="flex flex-row-reverse items-center justify-between pb-1 border-b border-white/5 text-[10px]">
-                          <span className="text-amber-400 font-bold border border-amber-500/20 px-2 py-0.5 rounded">إضافة مقياس (Module)</span>
-                          <span className="text-slate-400">بناء هيكل المادة التعليمية</span>
+                          <span className="text-amber-400 font-bold border border-amber-500/20 px-2 py-0.5 rounded font-sans">إضافة مقياس (Module)</span>
+                          <span className="text-slate-400 font-sans">بناء هيكل المادة التعليمية</span>
                         </div>
 
                         <div className="grid grid-cols-3 gap-2">
                           <div className="col-span-1">
-                            <label className="text-[10px] text-slate-400 block mb-1 font-sans">عدد الساعات</label>
+                            <label className="text-[10px] text-slate-400 block mb-1 font-sans text-right">عدد الساعات</label>
                             <input
                               type="number"
                               value={newModuleHoursInput}
@@ -2211,7 +2526,7 @@ export default function App() {
 
                         <div className="grid grid-cols-3 gap-2">
                           <div className="col-span-1">
-                            <label className="text-[10px] text-slate-400 block mb-1 font-sans">رمز المقياس</label>
+                            <label className="text-[10px] text-slate-400 block mb-1 font-sans text-right">رمز المقياس</label>
                             <input
                               type="text"
                               value={newModuleCodeInput}
@@ -2336,26 +2651,121 @@ export default function App() {
               <div className="bg-slate-900/40 backdrop-blur-md rounded-2xl p-6 md:p-8 shadow-xl border border-white/10">
                 <div className="flex items-center justify-between border-b pb-4 border-white/10">
                   <div>
-                    <h2 className="text-lg font-bold text-slate-100 font-sans flex items-center gap-2">
-                      حقيبة الأستاذ المحفوظة
-                      <span className="text-sm font-normal text-slate-400">({savedItems.length})</span>
-                      {session && (
-                        <span className="text-[10px] bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
-                          <Cloud size={9} />
-                          مزامنة سحابية
-                        </span>
-                      )}
-                    </h2>
-                    <p className="text-xs text-slate-400 mt-1">
-                      {session
-                        ? "أعمالك محفوظة في السحابة ومتاحة من أي جهاز"
-                        : "محفوظة محلياً على جهازك"}
-                    </p>
+                    <h2 className="text-lg font-bold text-slate-100 font-sans">حقيبة الأستاذ المحفوظة محلياً ({savedItems.length})</h2>
+                    <p className="text-xs text-slate-400 mt-1">مخزن أعمالك التربوية التي قمت بتوليدها وتعديلها على جهازك دون اتصال</p>
                   </div>
-                  <FolderLock className="w-8 h-8 text-blue-400" />
+                  <FolderLock className="w-8 h-8 text-indigo-400" />
                 </div>
 
-                {/* Zero state saved items */}
+                {/* Save/Restore Backups Panel */}
+                <div className="bg-slate-950/50 rounded-xl p-5 border border-white/5 mt-6 flex flex-col md:flex-row items-center justify-between gap-6 text-right">
+                  <div className="text-right flex-1 select-none">
+                    <h3 className="text-sm font-bold text-slate-100 flex items-center gap-1.5 justify-end">
+                      <span>حفظ واستعادة حالة المشروع الكاملة (.md)</span>
+                      <Sparkles className="w-4 h-4 text-indigo-400" />
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
+                      تحميل ملف مدمج (.md) يحتوي على كامل مقياس الساعات، المستندات المبرمجة بالذكاء الاصطناعي، وتخصيصات المواد المدخلة لإعادة رفعها أو رفعها لأي ذكاء اصطناعي آخر واستئناف العمل فوراً.
+                    </p>
+                    
+                    {importStatus && (
+                      <div className={`mt-3 p-3 rounded-lg text-xs leading-relaxed text-right flex items-start gap-2 ${
+                        importStatus.type === "success" 
+                          ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-300"
+                          : "bg-rose-500/10 border border-rose-500/20 text-rose-300"
+                      }`}>
+                        <div className="flex-1">{importStatus.message}</div>
+                        {importStatus.type === "success" ? (
+                          <CheckCircle className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                        ) : (
+                          <AlertCircle className="w-4 h-4 text-rose-400 flex-shrink-0" />
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row gap-3 flex-shrink-0 w-full md:w-auto">
+                    {/* Export Button */}
+                    <button
+                      onClick={handleExportProjectState}
+                      className="bg-indigo-600/20 border border-indigo-500/30 hover:bg-indigo-600/40 text-indigo-200 hover:text-white font-bold py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all active:scale-95 w-full sm:w-auto"
+                      title="تحميل الملف الكلي للمشروع"
+                    >
+                      <Download className="w-4 h-4 text-indigo-400" />
+                      <span>تصدير حالة المشروع (.md)</span>
+                    </button>
+
+                    {/* Import Button with hidden input */}
+                    <label className="bg-slate-800 border border-white/10 hover:bg-slate-700 text-slate-200 hover:text-white font-bold py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all active:scale-95 w-full sm:w-auto">
+                      <Upload className="w-4 h-4 text-slate-400" />
+                      <span>استيراد ملف المشروع</span>
+                      <input
+                        type="file"
+                        accept=".md"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          const reader = new FileReader();
+                          reader.onload = (evt) => {
+                            const text = evt.target?.result;
+                            if (typeof text === "string") {
+                              handleImportProjectState(text);
+                            }
+                          };
+                          reader.readAsText(file);
+                        }}
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                {/* Search and Filters Bar */}
+                {savedItems.length > 0 && (
+                  <div className="bg-slate-950/40 rounded-xl p-4 border border-white/5 mt-6 space-y-4">
+                    <div className="flex flex-col md:flex-row gap-3 items-stretch justify-between">
+                      {/* Search Input */}
+                      <div className="relative flex-1">
+                        <Search className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="text"
+                          value={satchelSearchQuery}
+                          onChange={(e) => setSatchelSearchQuery(e.target.value)}
+                          placeholder="ابحث باسم المستند، الدرس، الموضوع أو المحتوى..."
+                          className="w-full bg-[#030712]/60 border border-white/10 hover:border-white/15 p-2.5 pr-10 text-xs md:text-sm rounded-xl text-right text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all font-sans"
+                        />
+                        {satchelSearchQuery && (
+                          <button
+                            onClick={() => setSatchelSearchQuery("")}
+                            className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-white transition-colors"
+                          >
+                            مسح
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Tool/Category Filter Selector */}
+                      <div className="flex items-center gap-2 flex-row-reverse">
+                        <Filter className="w-4 h-4 text-slate-450 shrink-0" />
+                        <select
+                          value={satchelCategoryFilter}
+                          onChange={(e) => setSatchelCategoryFilter(e.target.value)}
+                          className="bg-[#030712]/60 border border-white/10 hover:border-white/15 p-2.5 px-3 text-xs md:text-sm rounded-xl text-right text-slate-100 focus:outline-none focus:border-indigo-500 transition-all font-sans cursor-pointer min-w-[150px]"
+                        >
+                          <option value="all">كل الأدوات والملفات</option>
+                          <option value="lesson_planner">خطة درس بيداغوجية</option>
+                          <option value="curriculum_planner">موزّع منهجي للمادة</option>
+                          <option value="assessment_generator">ملف تقييم ومراقبة</option>
+                          <option value="performance_report">تقرير أداء الطلاب</option>
+                          <option value="diagram_generator">مخطط توضيحي بيداغوجي</option>
+                          <option value="admin_copilot">مراسلة وثيقة إدارية</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Grid display or Empty Search / App states */}
                 {savedItems.length === 0 ? (
                   <div className="py-20 text-center flex flex-col items-center justify-center space-y-3">
                     <div className="w-16 h-16 rounded-full bg-slate-950/60 border border-white/15 flex items-center justify-center text-slate-300 shadow-md">
@@ -2363,20 +2773,41 @@ export default function App() {
                     </div>
                     <div>
                       <h4 className="font-bold text-slate-200 text-sm">حقيبتك البيداغوجية فارغة حالياً</h4>
-                      <p className="text-xs text-slate-400 mt-2 max-w-sm mx-auto leading-relaxed">
+                      <p className="text-xs text-slate-400 mt-2 max-w-sm mx-auto leading-relaxed font-sans">
                         كلما قمت بتوليد خطة درس أو تقرير أداء، اضغط على زر "حفظ في حقيبتي" لتخزين النسخة المُعدّلة هنا واستدعائها في الفصول القادمة بسهولة تامة!
                       </p>
                     </div>
                     <button
                       onClick={() => setActiveTab("tools")}
-                      className="bg-indigo-600 text-white font-bold py-2.5 px-5 rounded-xl text-xs hover:bg-indigo-500 cursor-pointer transition-all border border-indigo-500/20 active:scale-95"
+                      className="bg-indigo-600 text-white font-bold py-2.5 px-5 rounded-xl text-xs hover:bg-indigo-500 cursor-pointer transition-all border border-indigo-500/20 active:scale-95 font-sans"
                     >
                       اذهب للتوليد الآن
                     </button>
                   </div>
+                ) : filteredSavedItems.length === 0 ? (
+                  <div className="py-16 text-center flex flex-col items-center justify-center space-y-4 bg-slate-950/20 rounded-xl border border-white/5 mt-6">
+                    <div className="w-12 h-12 rounded-full bg-slate-950 border border-white/10 flex items-center justify-center text-slate-400 shadow-sm">
+                      <Search className="w-5 h-5 text-slate-500" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-slate-300 text-sm">لم نجد أي مستندات تطابق بحثك</h4>
+                      <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto leading-relaxed font-sans">
+                        جرب تعديل مصطلحات البحث أو تصفية تصنيف الأدوات لإيجاد الملف المناسب.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setSatchelSearchQuery("");
+                        setSatchelCategoryFilter("all");
+                      }}
+                      className="bg-indigo-600/10 border border-indigo-500/30 text-indigo-300 font-bold py-2 px-4 rounded-xl text-xs hover:bg-indigo-600/20 transition-all font-sans cursor-pointer"
+                    >
+                      إعادة تعيين البحث والتصفيات
+                    </button>
+                  </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                    {savedItems.map((item) => (
+                    {filteredSavedItems.map((item) => (
                       <div 
                         key={item.id}
                         className="bg-slate-950/40 backdrop-blur-xs rounded-xl p-5 border border-white/10 hover:border-white/20 hover:shadow-lg transition-all flex flex-col justify-between gap-4 relative group"
@@ -2412,18 +2843,44 @@ export default function App() {
 
                         {/* Retrieve Action */}
                         <div className="border-t pt-3 border-white/10 flex flex-row-reverse items-center justify-between mt-2 gap-2">
-                          <button
-                            onClick={() => {
-                              const safeTitle = item.title.replace(/\s+/g, "_");
-                              const filename = `وثيقة_حقيبة_${safeTitle}.html`;
-                              downloadHtmlDocument(filename, item.title, item.content, item.imageUrl || undefined);
-                            }}
-                            className="bg-emerald-600/20 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-600/30 font-black px-2.5 py-1.5 rounded-lg text-[11px] flex items-center gap-1 cursor-pointer transition-all"
-                            title="تحميل كوثيقة مدمجة فوراً"
-                          >
-                            <Download className="w-3.5 h-3.5" />
-                            <span>تنزيل المخطط المستند</span>
-                          </button>
+                          <div className="flex gap-1.5">
+                            <button
+                              onClick={() => {
+                                const safeTitle = item.title.replace(/\s+/g, "_");
+                                const filename = `وثيقة_حقيبة_${safeTitle}.html`;
+                                downloadHtmlDocument(filename, item.title, item.content, item.imageUrl || undefined);
+                              }}
+                              className="bg-emerald-600/10 border border-emerald-500/15 text-emerald-400 hover:bg-emerald-600/20 font-black px-2 py-1 rounded-lg text-[10px] flex items-center gap-1 cursor-pointer transition-all"
+                              title="تحميل كوثيقة مدمجة منسقة (.html)"
+                            >
+                              <Download className="w-3 h-3 text-emerald-400" />
+                              <span>HTML</span>
+                            </button>
+
+                            <button
+                              onClick={() => {
+                                const safeTitle = item.title.replace(/\s+/g, "_");
+                                const filename = `وثيقة_حقيبة_${safeTitle}.docx`;
+                                downloadDocxDocument(filename, item.title, item.content, item.imageUrl || undefined);
+                              }}
+                              className="bg-blue-600/10 border border-blue-500/15 text-blue-400 hover:bg-blue-600/20 font-black px-2 py-1 rounded-lg text-[10px] flex items-center gap-1 cursor-pointer transition-all"
+                              title="تصدير كملف Word ممتد (.docx)"
+                            >
+                              <FileText className="w-3 h-3 text-blue-400" />
+                              <span>Word</span>
+                            </button>
+
+                            <button
+                              onClick={() => {
+                                downloadPdfDocument(item.title, item.content, item.imageUrl || undefined);
+                              }}
+                              className="bg-rose-600/10 border border-rose-500/15 text-rose-400 hover:bg-rose-600/20 font-black px-2 py-1 rounded-lg text-[10px] flex items-center gap-1 cursor-pointer transition-all"
+                              title="تصدير كملف PDF مدمج ومطبوع (.pdf)"
+                            >
+                              <File className="w-3 h-3 text-rose-400" />
+                              <span>PDF</span>
+                            </button>
+                          </div>
 
                           <button
                             onClick={() => {
@@ -2925,8 +3382,6 @@ export default function App() {
         </div>
       </footer>
 
-      </div>
-      )}
     </div>
   );
 }
