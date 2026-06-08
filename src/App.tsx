@@ -425,7 +425,7 @@ export default function App() {
   };
 
   // Perform Server API call triggers with support for direct overrides
-  const handleGenerate = async (overrideTool?: ActiveTool, overrideParams?: any) => {
+  const handleGenerate = async (overrideTool?: any, overrideParams?: any) => {
     setIsGenerating(true);
     setErrorMsg(null);
     setCopied(false);
@@ -434,9 +434,11 @@ export default function App() {
     setEditableContent("");
     setOutputImageUrl("");
 
-    const targetTool = overrideTool || activeTool;
-    if (overrideTool) {
-      setActiveTool(overrideTool);
+    // Safeguard: Ensure overrideTool is a string before using it as targetType, avoiding event object stringification circular errors
+    const isStringTool = typeof overrideTool === "string";
+    const targetTool = isStringTool ? (overrideTool as ActiveTool) : activeTool;
+    if (isStringTool) {
+      setActiveTool(overrideTool as ActiveTool);
     }
 
     try {
@@ -2080,7 +2082,7 @@ ${JSON.stringify(exportPayload, null, 2)}
                 {/* Submit Button Triggering Server Gemini API Router */}
                 <div className="pt-3 font-sans">
                   <button
-                    onClick={handleGenerate}
+                    onClick={() => handleGenerate()}
                     disabled={isGenerating}
                     className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:bg-[#030712]/80 text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-[0_0_20px_rgba(99,102,241,0.25)] border border-indigo-500/30 active:scale-98 cursor-pointer text-sm md:text-md"
                   >

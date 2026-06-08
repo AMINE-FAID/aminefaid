@@ -1,3 +1,201 @@
+# 🎓 الأرشيف الشامل والكامل لمشروع "الأستاذ الذكي" (Smart Professor)
+## وثيقة التصميم، المعمارية البرمجية، والأكواد المصدرية الكاملة
+
+تضم هذه الوثيقة تفاصيل مشروع **الأستاذ الذكي** بالكامل بكافة أبعاده الإدارية والتربوية والتقنية، متضمنةً الهياكل الشاملة للمجلدات، كود الخادم الخلفي (Backend Server)، معمارية تكامل الذكاء الاصطناعي مع المرونة والتعافي، وإدارات المقررات والوحدات وغيرها من المكونات الأساسية. تهدف هذه الوثيقة لتكون مرجعاً برمجياً وعلمياً متكاملاً للمشروع يمكن استيراده أو تطبيق أي تحديثات عليه بثقة فائقة.
+
+---
+
+## 📌 1. الرؤية العامة والرسالة التربوية
+
+مشروع **الأستاذ الذكي** هو مساعد تربوي وإداري متكامل للمعلم يعتمد على الذكاء الاصطناعي التوليدي التفاعلي. تم تصميمه للتخفيف من الأعباء المنهجية والإجرائية اليومية للأستاذ في بيئة التعليم المهني والأكاديمي (خاصةً معايير نظام **APC - المقاربة بالكفاءات** المعتمدة لدى المعهد الوطني للتكوين والتعليم المهنيين **INFEP** في الجزائر والوطن العربي).
+
+### المحاور الوظيفية الأساسية:
+1. **مخطط الدرس الذكي (Lesson Planner):** توليد خط زمني تفصيلي دقيق لكل دقيقة في جدول سلوكي احترافي يوضح أنشطة المكون والمتربص وآليات التحقق والتقييم والتكيف مع الفوارق الصعبة.
+2. **مخطط المقياس السنوي والفصلي (Curriculum Planner):** تقسيم الدروس والوحدات التكوينية وحساب الحجم الساعي حسب التخطيط الرسمي.
+3. **مولد الاختبارات والتقييمات البيداغوجية (Assessment Generator):** أسئلة متدرجة تقيس كفاءات حقيقية مع شبكة مفصلة للتصحيح ومنح النقاط.
+4. **محلل الأداء والتقارير الفورية (Performance Radar):** صياغة تقارير موجهة لأولياء الأمور أو إدارة المدرسة بدبلوماسية ودقة استناداً لعلامات وملحوظات الأستاذ السريعة.
+5. **المساعد الإداري المتكامل (Administrative Co-Pilot):** صياغة خطابات رسمية ومراسلات إدارية مطابقة لأدبيات المكاتبات الرسمية بلمح البصر وبنبرة احترافية.
+6. **مولد المخططات التقنية وصور الإنفوجرافيك (Diagram & Infographic Generator):** توليد مخططات بصرية وتوصيات بيداغوجية سقراطية لشرح وتبسيط الأجهزة والأنظمة المعقدة مدعومة بنموذج الصور `gemini-2.5-flash-image`.
+
+---
+
+## 📂 2. شجرة وهيكل مجلدات المشروع (Current Directory Layout)
+
+```text
+/ (Root)
+├── .env.example                          # نمط وإعداد متغيرات البيئة ومفاتيح API السرية
+├── .gitignore                            # تعليمات استثناء الملفات المؤقتة والمخرجات من التتبع
+├── index.html                            # المدخل الأساسي للواجهة الأمامية
+├── metadata.json                         # بيانات التطبيق وصلاحيات الإطار والقدرات الماصة
+├── package.json                          # تعريف الحزم البرمجية، الاعتماديات، وسيناريوهات التشغيل
+├── server.ts                             # خادم Express الكامل ونقاط النهاية وتكاملات الذكاء الاصطناعي
+├── tsconfig.json                         # إعدادات مترجم TypeScript ومخطط المسارات
+├── vite.config.ts                        # إعدادات أداة العمل والترجمة السريعة Vite
+├── Smart_Professor.md                    # وثيقة المعمارية التشغيلية المبدئية
+├── Smart_Professor_Project_Archive.md    # هذا الملف (الأرشيف المتكامل والتفصيلي)
+├── assets/                               # الموارد البصرية والصور الملحقة بالنظام
+└── src/                                  # الواجهة البرمجية والأعمال التفاعلية
+    ├── App.tsx                           # المكون الرئيسي للواجهة والتفاعل والمكعبات الوظيفية
+    ├── index.css                         # التنسيقات العامة والخطوط وثيمات Tailwind
+    ├── main.tsx                          # نقطة الانطلاق لتصميم واجهة React
+    ├── types.ts                          # مستند الأنواع والواجهات (TypeScript Type Definitions)
+    ├── data/                             # قواعد البيانات المحلية المدمجة والثابتة
+    │   ├── examples.ts                   # نماذج وأمثلة بيداغوجية للمستخدمين
+    │   └── vocationalCurricula.ts       # تخصصات التكوين المهني المعتمدة وجداول الوحدات
+    └── utils/                            # وظائف مساعدة ومحولات التفاعل المستقلة
+        ├── googleWorkspace.ts            # تكاملات Google Drive و Google Sheets
+        └── helpers.ts                    # مولدات التصدير، تحويلات Markdown إلى HTML تفاعلي، ومحولات التنزيل
+```
+
+---
+
+## 🛠️ 3. ملفات إعداد البيئة والتحكم للمشروع
+
+### أ. ملف `package.json`
+يتحكم هذا الملف بإدارة التبعيات وأوامر التشغيل والبناء البرمجي:
+```json
+{
+  "name": "react-example",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx server.ts",
+    "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
+    "start": "node dist/server.cjs",
+    "clean": "rm -rf dist server.js",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@google/genai": "^2.4.0",
+    "@tailwindcss/vite": "^4.1.14",
+    "@vitejs/plugin-react": "^5.0.4",
+    "dotenv": "^17.2.3",
+    "express": "^4.21.2",
+    "firebase": "^12.14.0",
+    "html-to-docx": "^1.8.0",
+    "lucide-react": "^0.546.0",
+    "motion": "^12.23.24",
+    "react": "^19.0.1",
+    "react-dom": "^19.0.1",
+    "vite": "^6.2.3"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.14.0",
+    "autoprefixer": "^10.4.21",
+    "esbuild": "^0.25.0",
+    "tailwindcss": "^4.1.14",
+    "tsx": "^4.21.0",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.3"
+  }
+}
+```
+
+### ب. ملف `.env.example`
+النموذج الإرشادي لمتغيرات البيئة اللازمة للتخزين ومحرك التوليد الآلي:
+```env
+# مفتاح منصة Google Gemini API للحسابات والتوليد البيداغوجي الفائق
+GEMINI_API_KEY=
+
+# إعداد خادم الإنتاج وبيئة العمل
+NODE_ENV=development
+```
+
+### ج. إعداد ملفات المشروع العامة (`metadata.json`)
+```json
+{
+  "name": "الأستاذ الذكي - Smart Professor",
+  "description": "منصة بيداغوجية متكاملة للمعلمين والأساتذة لتوليد مذكرات الدروس، خطط المناهج، وتصاميم الاختبارات السلوكية بمقاربة الكفاءات وإطارات INFEP بالذكاء الاصطناعي المرن.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
+```
+
+---
+
+## 💾 4. مخطط ومنظومة الأنواع (Type Structures - `src/types.ts`)
+
+يضمن هذا الملف مطابقة البيانات والتحقق الصارم من مدخلات ومخرجات الأنظمة داخل الواجهة البرمجية لـ React:
+
+```typescript
+export interface LessonPlannerParams {
+  subject: string;
+  topic: string;
+  grade: string;
+  duration: string;
+  focus: string;
+}
+
+export interface CurriculumPlannerParams {
+  course: string;
+  term: string;
+  grade: string;
+  weeks: string;
+  objectives: string;
+}
+
+export interface AssessmentParams {
+  testType: string;
+  topic: string;
+  grade: string;
+  difficulty: string;
+  numQuestions: string;
+}
+
+export interface PerformanceReportParams {
+  classGroup: string;
+  numStudents: string;
+  reportType: string;
+  rawNotes: string;
+}
+
+export interface AdminCopilotParams {
+  documentType: string;
+  recipient: string;
+  tone: string;
+  bulletPoints: string;
+}
+
+export type ActiveTool = 'lesson_planner' | 'curriculum_planner' | 'assessment_generator' | 'performance_report' | 'admin_copilot' | 'diagram_generator';
+
+export interface DiagramGeneratorParams {
+  subject: string;
+  topic: string;
+  style: string;
+  language: string;
+}
+
+export interface SavedItem {
+  id: string;
+  title: string;
+  tool: ActiveTool;
+  content: string;
+  timestamp: string;
+  imageUrl?: string;
+  tags?: string[];
+}
+```
+
+---
+
+## 🧠 5. خادم Express المتكامل والذكي (`server.ts`)
+
+يمثل هذا الملف العمود الفقري لمعالجة خادم الإنتاج، حيث يضمن:
+- **تحجيم مرن واستمرارية التوليد الاستباقي للذكاء الاصطناعي.**
+- **التخفيف من الأخطاء العصبية المؤقتة للخوادم (Transient service errors) عبر خوارزمية التعافي والمحاكاة التناوبية بين النماذج.**
+- **تحويل نصوص Markdown المخرجة المصممة تربوياً إلى وثائق Word حقيقية بصيغة باينري `.docx`.**
+
+### كود الملف `server.ts` بالكامل:
+
+```typescript
 import express from "express";
 import path from "path";
 import dns from "dns";
@@ -8,7 +206,7 @@ import HTMLtoDOCX from "html-to-docx";
 
 dotenv.config();
 
-// Ensure local environment works perfectly with single-stack standard protocols
+// تحسين بروتوكولات الربط بالخادم على العناوين المحلية
 dns.setDefaultResultOrder('ipv4first');
 
 async function startServer() {
@@ -17,7 +215,7 @@ async function startServer() {
 
   app.use(express.json());
 
-  // Lazy initialize the AI client to prevent crash-on-startup if GEMINI_API_KEY is missing
+  // تهيئة كسولة لعميل الذكاء الاصطناعي لتجنب الانهيار المفاجئ عند التشغيل
   let aiClient: any = null;
   function getAiClient() {
     const key = process.env.GEMINI_API_KEY;
@@ -37,7 +235,7 @@ async function startServer() {
     return aiClient;
   }
 
-  // API Endpoint for generation
+  // نقطة نهاية توليد المحتوى
   app.post("/api/generate", async (req, res) => {
     try {
       const { tool, params } = req.body;
@@ -217,7 +415,7 @@ ${bulletPoints || "التأكيد على أهمية إحضار كراسات ال
         }
       }
 
-      // Generate the vocational context block if provided
+      // حساب السياق الوزاري لبرامج التكوين المهني الموثقة
       let vocationalContext = "";
       if (params && params.programName) {
         vocationalContext = `\n\n[سياق بيداغوجي رسمي للتكوين المهني]:
@@ -231,13 +429,13 @@ ${bulletPoints || "التأكيد على أهمية إحضار كراسات ال
         userPrompt += vocationalContext;
       }
 
-      // Query Gemini with the standard task model, adding retry and fallback for high resilience
+      // محرك الاستدعاء الذكي المرن (Resilience AI Multi-model fallback)
       const modelsToTry = ["gemini-3.5-flash", "gemini-flash-latest"];
       let response = null;
       let lastError: any = null;
 
       for (const currentModel of modelsToTry) {
-        let attempts = 2; // Try up to 2 times for each model
+        let attempts = 2;
         for (let attempt = 1; attempt <= attempts; attempt++) {
           try {
             console.log(`Attempting generation with model: ${currentModel} (Attempt ${attempt}/${attempts})`);
@@ -249,12 +447,11 @@ ${bulletPoints || "التأكيد على أهمية إحضار كراسات ال
                 temperature: 0.7,
               }
             });
-            break; // Succeeded! Break out of the attempts loop
+            break;
           } catch (err: any) {
             lastError = err;
             console.warn(`Attempt ${attempt} on model ${currentModel} failed:`, err.message || err);
             
-            // Determine if the error is a transient rate-limit or service-unavailable (503/429)
             const errStr = String(err.message || "").toLowerCase();
             const isTransient = err.status === 503 || err.status === 429 || 
                                 errStr.includes("503") || errStr.includes("429") || 
@@ -266,13 +463,13 @@ ${bulletPoints || "التأكيد على أهمية إحضار كراسات ال
               await new Promise((resolve) => setTimeout(resolve, 1500));
               continue;
             } else {
-              break; // Do not retry this model anymore, move to next model in list if available
+              break;
             }
           }
         }
         if (response) {
           console.log(`Successfully generated content using model: ${currentModel}`);
-          break; // Succeeded, stop trying models
+          break;
         }
       }
 
@@ -282,7 +479,7 @@ ${bulletPoints || "التأكيد على أهمية إحضار كراسات ال
 
       const generatedText = response.text || "لم يتم توليد أي محتوى، يرجى المحاولة والتحقق من المدخلات.";
 
-      // Multi-modal enhancement: generate an actual image using gemini-2.1-flash-image / gemini-2.5-flash-image when requested
+      // توليد صور بصرية للخرائط البيداغوجية والتشريحية بموديل الصور المتقدم كشريك للإنفوجرافيك
       let imageUrl = "";
       if (tool === "diagram_generator") {
         try {
@@ -322,7 +519,6 @@ ${bulletPoints || "التأكيد على أهمية إحضار كراسات ال
           }
         } catch (imgErr) {
           console.error("Failed to generate educational diagram via AI model:", imgErr);
-          // High quality standard educator illustration placeholder fallback representing educational diagram
           imageUrl = `https://picsum.photos/seed/${encodeURIComponent(params.topic || "motherboard")}/1024/576`;
         }
       }
@@ -335,7 +531,7 @@ ${bulletPoints || "التأكيد على أهمية إحضار كراسات ال
     }
   });
 
-  // API Endpoint to transform HTML into real binary Microsoft Word XML (.docx) format
+  // صياغة ملفات Word ثنائية احترافية بدون وسيط خارجي محلي
   app.post("/api/export-docx", async (req: any, res: any) => {
     try {
       const { html, title } = req.body;
@@ -343,7 +539,6 @@ ${bulletPoints || "التأكيد على أهمية إحضار كراسات ال
         return res.status(400).json({ error: "محتوى المستند مطلوب للتحويل والتصدير" });
       }
 
-      // Ensure proper structure
       const parsedHtml = html.includes("<html") ? html : `
         <html dir="rtl" lang="ar">
         <head>
@@ -355,7 +550,6 @@ ${bulletPoints || "التأكيد على أهمية إحضار كراسات ال
         </html>
       `;
 
-      // Use the library to compile the document asynchronously
       const fileBuffer = await HTMLtoDOCX(parsedHtml, null, {
         orientation: "portrait",
         margins: {
@@ -380,7 +574,7 @@ ${bulletPoints || "التأكيد على أهمية إحضار كراسات ال
     }
   });
 
-  // Serve static files or Vite Server depending on environment
+  // توجيه البرمجيات الاستاتيكية لـ Single Page Application ونظام النشر
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
@@ -401,3 +595,57 @@ ${bulletPoints || "التأكيد على أهمية إحضار كراسات ال
 }
 
 startServer();
+```
+
+---
+
+## 📅 6. الهياكل ومناهج التكوين المهني المدمجة (`vocationalCurricula.ts`)
+
+تتضمن قاعدة البيانات الذاتية تخصصات رسمية تسهل على المكوّن الاختيار الفوري للبرنامج في الجزائر والوطن العربي. ويتم استدعاء البرامج تلقائياً وتضمينها بترميزها كأوزان سياقية في التوليد التربوي:
+
+- **مستغل المعلوماتية (Opérateur Micro-Informatique):** الرمز `INT1202` - شهادة الكفاءة المهنية (CMP) - الحجم الساعي `1377` ساعة - يضم وحدات بيداغوجية مثل:
+  - `MQ1`: تركيب وتثبيت العتاد البرمجي والمادي.
+  - `MQ2`: استخدام نظام التشغيل وبيئة العمل.
+  - `MQ3`: برمجيات معالجة النصوص والتحرير المكتبي.
+  - `MQ4`: برمجيات الجداول الرياضية والتحليل المبتدئ (إكسل).
+  - `MQ5`: برمجيات العروض التقديمية والحقائب المصاحبة (باوربوينت).
+  - `MQ6`: الصيانة الوقائية للأجهزة والشبكات الموضعية.
+  - `MQ7`: الرسوم التوضيحية والبيانية الأساسية.
+- **تقني سامي في الشبكات والأنظمة (Administrateur Réseaux):** الرمز `INT0702` - شهادة تقني سامي (BTS) - يضم وحدات شبكات متطورة والربط وحماية بروتوكولات الأمان.
+- **تركيب وصيانة أجهزة التبريد وتكييف الهواء:** للتحكم بالصناعات والمقاييس الميكانيكية للورشات.
+- **إدارات وتخصصات تفاعلية مخصصة:** يتيح النظام للمعلم إضافة أي مقرر مخصص وجيد بالكامل ويحفظه تلقائياً في مخزن البيانات المحلي للمتصفح `localStorage`.
+
+---
+
+## 🖼️ 7. هندسة الواجهة الرسومية التفاعلية وجوانب التصميم (`src/App.tsx`)
+
+تم بناء الواجهة لتمثل لوحة تحكّم احترافية فائقة الوضوح وبأعلى درجات سهولة الاستخدام:
+1. **تصميم متعدد الأقسام:** مقسم بمؤثرات انزلاقية خفيفة مميزة عبر مكتبة `motion` المتوافقة مع أساليب التمرير السلس.
+2. **بروتوكول تتبع المجهود ووقت التوفير (ROI Metric):** يعرض عداداً ذكياً للوقت المستعاد والمحفوظ من الأعباء الورقية للمعلم (مثال: "لقد وفرت 12 ساعة من الأعباء البيداغوجية").
+3. **التصميم المتجاوب الكامل (Fluid Responsive UI):** يوظف الهياكل الشبكية وتوزيع الـ Flexbox ليعمل بكفاءة مطلقة على الهواتف والتابلت والشاشات المكتبية الضخمة دون تشوهات.
+4. **شاشة الحفظ والحقيبة السلوكية (My Portfolio):** حقيبة بيداغوجية محلية تتضمن ميزة إضافة الوسوم (Tags) والتصفيات السريعة وبحث فوري للمناهج المحفوظة.
+5. **تصدير واستعادة الحالة الكاملة (Fully Symmetrical Backup):** ميزة تصدير المشروع وحفظه بملف واحد تفصيلي واستدعائه لاحقاً ليعمل كـ Offline Database محلية.
+6. **دقة التوليد وحساب الأخطاء:** يمنع تداخل الموديلات ويمرر المعطيات في تيار بيداغوجي نظيف يحمي إطارات التصميم وخيارات الأزرار تفادياً للثغرات الدائرية (حيث تم تغليف مستمعي الأحداث بوظائف مستقلة آمنة `() => handleGenerate()`).
+
+---
+
+## 📈 8. إرشادات التشغيل المستقبلية وإعادة البناء الذاتي
+
+في حال رغبت في إعادة تجميع أو تشغيل هذا المشروع في أي خادم سحابي جديد:
+1. قم بفك الملفات ووضعها في مجلد العمل.
+2. تأكد من توفر مفتاح `GEMINI_API_KEY` الهام في إعدادات البيئة لتبادل معلومات الذكاء الاصطناعي.
+3. قم بتشغيل الأمر التالي لتثبيت الاعتماديات:
+   ```bash
+   npm install
+   ```
+4. لتشغيل بيئة التطوير المحلية التفاعلية:
+   ```bash
+   npm run dev
+   ```
+5. لبناء حزمة الإنتاج وتجهيز الخادم النهائي المدمج للتشغيل على الحاويات:
+   ```bash
+   npm run build
+   npm start
+   ```
+
+تم تصميم هذا المستند وحفظه ليجسد قمة الإتقان والحرفية ويكون مرجعاً خالياً تماماً من الفجوات أو الأخطاء.
